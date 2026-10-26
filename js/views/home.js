@@ -2,7 +2,7 @@
 // del día, los días con juegos y las tarjetas de cada juego (por empezar, en vivo y final).
 import { $, $$, esc, I, badge, settings, saveSettings, toggleIn, toast, share } from '../ui.js';
 import { LOGO_PATHS } from '../field.js';
-import { scoreboard, eventCard } from '../espn.js';
+import { scoreboard, eventCards } from '../espn.js';
 import { store, install } from '../store.js';
 import { teamVars, timeOf, dayOf, longDay, soon, dayKey, miniField, ownFrom } from './common.js';
 
@@ -39,7 +39,7 @@ export function homeView(el, params) {
             store.stype = sb.season?.type ?? stype;
             week = store.week;
             stype = store.stype;
-            games = (sb.events || []).map(eventCard);
+            games = eventCards(sb);
             store.games = games;
             store.emit();
             const keys = [...new Set(games.map((g) => dayKey(g.date)))].sort();

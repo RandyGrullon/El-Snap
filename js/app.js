@@ -1,7 +1,7 @@
 // El Snap: como El Play, pero para la NFL. Rutas, la barra de abajo con el botón rojo de en vivo y la hoja de
 // juegos en vivo. Cada pantalla vive en js/views/.
 import { $, $$, esc, I, badge, applyTheme, openSheet, closeSheet } from './ui.js';
-import { scoreboard, eventCard } from './espn.js';
+import { scoreboard, eventCards } from './espn.js';
 import { store } from './store.js';
 import { homeView } from './views/home.js';
 import { gameView } from './views/game.js';
@@ -53,7 +53,7 @@ async function refreshGames() {
     try {
         const sb = await scoreboard({});
         store.sb = sb;
-        store.games = (sb.events || []).map(eventCard);
+        store.games = eventCards(sb);
         store.emit();
     } catch {
         /* sin datos: el botón queda sin número */

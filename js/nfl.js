@@ -2,6 +2,7 @@
 // Aquí se traduce cada jugada de ESPN (tipo, yardas, yarda de inicio, down y el texto oficial en inglés) a una
 // especificación del motor de jugadas, con los nombres reales de los jugadores y el texto en español.
 import { FOULS, foulSpot } from './plays.js';
+import { colorOf, logoOf } from './espn.js';
 
 const API = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl';
 
@@ -37,7 +38,7 @@ const far = (a, b) => Math.hypot(...rgb(a).map((c, i) => c - rgb(b)[i])) > 90;
 
 /** Equipo de ESPN con lo que usa la app: nombre, abreviatura, colores y logo */
 export function teamOf(t, fallback) {
-    const color = hex(t.color, fallback);
+    const color = hex(t.color, colorOf(t.abbreviation) || fallback);
     return {
         id: String(t.id),
         name: t.shortDisplayName || t.name || t.abbreviation,
@@ -46,7 +47,7 @@ export function teamOf(t, fallback) {
         color,
         color2: mix(color, '#ffffff', 0.55),
         alt: hex(t.alternateColor, '#ffffff'),
-        logo: t.logo || t.logos?.[0]?.href || ''
+        logo: t.logo || t.logos?.[0]?.href || (t.abbreviation ? logoOf(t.abbreviation) : '')
     };
 }
 
@@ -60,7 +61,8 @@ function separate(away, home) {
 
 // ---------------------------------------------------------------- Texto oficial
 
-const NAME = String.raw`([A-Z][\w'’.-]*\.\s?[A-Z][\w'’-]+(?:\s(?:Jr|Sr|II|III|IV)\.?)?)`;
+// «P.Mahomes», «A.St. Brown», «Ja.Chase»: después del punto va un apellido (no una palabra en mayúsculas como PENALTY)
+const NAME = String.raw`([A-Z][\w'’.-]*\.\s?[A-Z][a-z'’][\w'’-]*(?:\s(?:Jr|Sr|II|III|IV)\.?)?)`;
 const re = (s, f = '') => new RegExp(s, f);
 const pick = (r, s) => r.exec(s)?.[1] || '';
 const clean = (s = '') =>
@@ -154,13 +156,15 @@ function whoOf(spec) {
     const push = (role, x) => {
         if (x && x.n && !/^(el|la) /.test(x.n) && !list.some(([, n]) => n === x.n)) list.push([role, x.n]);
     };
+    const passing = /pass|2pt/.test(spec.kind) && spec.sub !== 'run';
+    const caught = !(spec.result === 'incomplete' || spec.result === 'int');
     push(spec.kind === 'scramble' ? 'Corre' : /sack|kneel|spike/.test(spec.kind) ? 'QB' : 'Lanza', o.qb);
-    push('Corre', o.rb);
-    for (const k of ['x', 'z', 'sl', 'te']) push('Atrapa', o[k]);
+    push(passing && spec.target === 'RB' ? (caught ? 'Atrapa' : 'Hacia') : 'Corre', o.rb);
+    for (const k of ['x', 'z', 'sl', 'te']) push(caught ? 'Atrapa' : 'Hacia', o[k]);
     push('Patea', o.k);
     push('Despeja', o.p);
     push('Regresa', d.ret);
-    push(spec.kind === 'sack' ? 'Captura' : spec.result === 'int' ? 'Intercepta' : spec.fumble ? 'Recupera' : 'Taclea', d.lb);
+    push(spec.kind === 'sack' ? 'Captura' : spec.result === 'int' ? 'Intercepta' : spec.result === 'blocked' ? 'Bloquea' : spec.fumble ? 'Recupera' : spec.result === 'incomplete' ? 'Defiende' : 'Taclea', d.lb);
     return list;
 }
 
@@ -202,7 +206,13 @@ export function mapGame(s) {
         for (const p of d.plays || []) {
             const after = [Number(p.awayScore ?? last[0]), Number(p.homeScore ?? last[1])];
             if (wpBy[p.id] != null) wp = wpBy[p.id];
-            const made = mapPlay(p, { teams, byId, byAbbr, dTeam, before: last, after, drive: di });
+            let made;
+            try {
+                made = mapPlay(p, { teams, byId, byAbbr, dTeam, before: last, after, drive: di });
+            } catch {
+                // Una jugada que no se entiende queda en la lista con su texto oficial (sin animación)
+                made = [{ id: p.id, q: p.period?.number || 1, clock: p.clock?.displayValue || '', raw: p.text || '', drive: di, team: dTeam ?? 0, label: p.type?.text || 'Jugada', es: clean(p.text || ''), before: { score: last }, after: { score: after } }];
+            }
             for (const r of made) {
                 r.wp = wp;
                 if (r.ytg == null) r.ytg = lastYtg;
@@ -230,7 +240,8 @@ function mapPlay(p, G) {
 
     // Separadores y situaciones sin jugada
     if (/end (of )?(period|quarter|half|game|regulation)|end quarter|coin toss|end of/i.test(type) || /^END (QUARTER|GAME|OF)/i.test(text)) {
-        return [{ ...base, sep: true, label: /game|regulation/i.test(type + text) ? 'Final del juego' : /half/i.test(type + text) ? 'Medio tiempo' : `Fin del ${q}º cuarto`, team: G.dTeam ?? 0 }];
+        const qn = Number(/QUARTER (\d)/i.exec(text)?.[1] || q);
+        return [{ ...base, sep: true, label: /game|regulation/i.test(type + text) ? 'Final del juego' : /half/i.test(type + text) ? 'Medio tiempo' : qn >= 5 ? 'Fin de la prórroga' : `Fin del ${qn}º cuarto`, team: G.dTeam ?? 0 }];
     }
     if (/two.?minute/i.test(type + text)) return [{ ...base, team: G.dTeam ?? 0, kind: 'timeout', label: 'Aviso de 2 minutos', es: 'Aviso de 2 minutos: el reloj se detiene', spec: { kind: 'timeout', variant: 'twomin' } }];
     if (/timeout/i.test(type)) {
@@ -263,16 +274,25 @@ function mapPlay(p, G) {
     const pts = scorer >= 0 ? { team: scorer, n: scored[scorer], abbr: G.teams[scorer].abbr } : null;
     const out = (spec, label, es, extra = {}) => [{ ...r, spec: { seed, ytg, offR: roster(), defR: roster(), ...spec }, who: whoOf(spec), kind: spec.kind, label, es, pts, yards: extra.yards ?? null, first: !!spec.first, turnover: !!extra.turnover, flag: !!spec.penalty, ...extra }];
 
-    // Nombres
+    // Nombres (con respaldo para los textos cuando ESPN no trae el nombre)
     const passer = pick(re(NAME + String.raw`\s+(?:pass|sacked|scrambles|spiked|kneels)`), text);
     const target = pick(re(String.raw`(?:pass(?: incomplete)?(?: short| deep)?(?: left| middle| right)? to|intended for)\s+` + NAME), text);
     const rusher = pick(re(NAME + String.raw`\s+(?:up the middle|left|right|scrambles|kneels|rushed|to\s|for\s)`), text);
     const stopper = lastParen(text);
+    const qbN = passer || 'su QB';
+    const tgN = target || 'su receptor';
+    const rbN = rusher || 'El corredor';
+    const yd = (n) => `${n} ${Math.abs(n) === 1 ? 'yarda' : 'yardas'}`;
+    // Balón suelto que recupera su propio equipo: la jugada cuenta como pase o carrera normal
+    const ownFumble = /FUMBLES/i.test(text) && !/opponent|return touchdown/.test(type) && (/RECOVERED by ([A-Z]{2,3})/i.exec(text)?.[1] || offAbbr) === offAbbr;
+    const fumbleNote = ownFumble ? ' (soltó el balón, pero lo recuperó su equipo)' : '';
 
     // Faltas
     if (/penalty/.test(type) || (/PENALTY on/i.test(text) && /No Play/i.test(text))) {
         const m = /PENALTY on ([A-Z]{2,3})-?[^,]*,\s*([^,]+?),\s*(\d+) yards?/i.exec(text);
-        if (/declined|offsetting/i.test(text) || !m) return [{ ...r, label: 'Pañuelo', es: /offsetting/i.test(text) ? 'Faltas compensadas: se repite el intento' : 'Falta declinada', spec: { seed, ytg, kind: 'presnap', penalty: { code: 'other', name: 'Faltas compensadas', team: 'off', yards: 0, when: 'pre' } }, kind: 'presnap', flag: true, pts: null }];
+        const offsetting = /offsetting/i.test(text);
+        if (/declined/i.test(text) || offsetting || !m) return [{ ...r, label: 'Pañuelo', es: offsetting ? 'Faltas compensadas: se repite el intento' : 'Falta declinada', spec: { seed, ytg, kind: 'presnap', offR: roster(), defR: roster(), penalty: { code: 'other', name: offsetting ? 'Faltas compensadas' : 'Falta declinada', team: 'off', yards: 0, to: 0, when: 'pre' } }, kind: 'presnap', flag: true, pts: null, who: [] }];
+        const culprit = /PENALTY on [A-Z]{2,3}-([^,]+),/i.exec(text)?.[1]?.trim();
         const foulName = m[2].trim();
         const yards = Number(m[3]);
         const team = m[1] === offAbbr ? 'off' : 'def';
@@ -286,11 +306,12 @@ function mapPlay(p, G) {
         let spec;
         if (code === 'false_start' || code === 'offside' || code === 'delay' || (noPlay && !/ pass | sacked | left | right | up the middle/i.test(action))) spec = { kind: 'presnap', penalty: { ...pen, when: 'pre' } };
         else if (/sacked/i.test(action)) spec = { kind: 'sack', gain: Math.min(-1, forYards(action) ?? -5), penalty: pen };
-        else if (/ pass /i.test(action)) spec = /incomplete/i.test(action) ? { kind: 'pass', variant: /deep/i.test(action) ? 'deep' : 'medium', result: 'incomplete', catchU: code === 'dpi' ? Math.max(3, Math.min(to, ytg + 4)) : undefined, penalty: pen, offR: roster({ qb: passer, x: target }), target: 'X', route: /deep/i.test(action) ? 'go' : 'out' } : { kind: 'pass', variant: 'short', gain: Math.max(1, Math.min(forYards(action) ?? 5, ytg - 1)), penalty: pen, offR: roster({ qb: passer, x: target }), target: 'X', route: 'out' };
+        else if (/ pass /i.test(action)) spec = /incomplete|intended for/i.test(action) ? { kind: 'pass', variant: /deep/i.test(action) ? 'deep' : 'medium', result: 'incomplete', catchU: code === 'dpi' ? Math.max(3, Math.min(to, ytg + 4)) : undefined, penalty: pen, offR: roster({ qb: passer, x: target }), target: 'X', route: /deep/i.test(action) ? 'go' : 'out' } : { kind: 'pass', variant: 'short', gain: Math.max(1, Math.min(forYards(action) ?? 5, ytg - 1)), penalty: pen, offR: roster({ qb: passer, x: target }), target: 'X', route: 'out' };
         else spec = { kind: 'run', variant: /end/i.test(action) ? 'outside' : 'inside', side: SIDE(action) || undefined, gain: Math.max(-2, Math.min(forYards(action) ?? 3, ytg - 1)), penalty: pen, offR: roster({ rb: rusher }) };
         if (!noPlay && spec.kind !== 'presnap') spec.penalty.enforce = 'end';
         const who = G.teams[team === 'off' ? off : 1 - off];
-        return out({ defR: roster(allDef(stopper)), offR: roster({ qb: passer, rb: rusher }), ...spec }, 'Pañuelo', `Pañuelo: ${nameEs.toLowerCase()} contra ${who.name} (${yards} yardas)`, { yards: to });
+        const full = { defR: roster(allDef(stopper)), offR: roster({ qb: passer, rb: rusher }), ...spec };
+        return out(full, 'Pañuelo', `Pañuelo: ${nameEs.toLowerCase()} contra ${who.name} (${yd(yards)})${culprit ? `, de ${culprit}` : ''}`, { yards: to, who: [...whoOf(full), ...(culprit ? [['Falta', culprit]] : [])] });
     }
 
     // Patadas
@@ -308,7 +329,7 @@ function mapPlay(p, G) {
         const tb = /touchback/i.test(text);
         const land = tb ? Math.max(kicked, ytg + 2) : kicked;
         const retY = forYards(text.split(/kicks/i)[1] || '') ?? Math.max(0, gain);
-        return out({ kind: 'kickoff', land: Math.min(land, ytg + 8), ret: Math.max(0, retY), touchback: tb, result: td ? 'td' : '', offR, defR }, 'Patada inicial', tb ? `${kicker || 'El pateador'} patea a la zona de anotación: touchback` : td ? `¡${ret || 'El regresador'} devuelve la patada hasta la zona de anotación!` : `Patada de ${kicker || 'inicio'}; ${ret || 'el regresador'} la regresa ${Math.max(0, retY)} yardas`, { yards: null });
+        return out({ kind: 'kickoff', land: Math.min(land, ytg + 8), ret: Math.max(0, retY), touchback: tb, result: td ? 'td' : '', offR, defR }, td ? 'Retorno para TD' : 'Patada inicial', tb ? `${kicker || 'El pateador'} patea a la zona de anotación: touchback` : td ? `¡${ret || 'El regresador'} devuelve la patada hasta la zona de anotación!` : `Patada de ${kicker || 'inicio'}; ${ret || 'el regresador'} la regresa ${yd(Math.max(0, retY))}`, { yards: null });
     }
     if (/punt/.test(type)) {
         const punter = pick(re(NAME + String.raw`\s+punts`), text);
@@ -317,8 +338,9 @@ function mapPlay(p, G) {
         const tb = /touchback/i.test(text);
         const fair = /fair catch/i.test(text);
         const retY = fair || tb ? 0 : Math.max(0, forYards(text.split(/punts/i)[1] || '') ?? 0);
-        if (/blocked/i.test(type + text)) return out({ kind: 'fg', result: 'blocked', offR: roster({ k: punter, p: punter }), defR: roster(allDef(stopper)) }, 'Despeje bloqueado', `¡Bloquean el despeje de ${punter || 'su pateador'}!`, { turnover: true });
-        return out({ kind: 'punt', land: Math.min(landY, ytg + 6), ret: retY, fair, touchback: tb, offR: roster({ p: punter }), defR: roster({ ret, ...allDef(stopper) }) }, 'Despeje', tb ? `Despeje de ${landY} yardas de ${punter}: touchback` : fair ? `Despeje de ${landY} yardas de ${punter}; ${ret || 'el regresador'} pide fair catch` : `Despeje de ${landY} yardas de ${punter}; lo regresan ${retY} yardas`);
+        const pN = punter || 'su despejador';
+        if (/blocked/i.test(type + text)) return out({ kind: 'fg', result: 'blocked', offR: roster({ k: punter, p: punter }), defR: roster(allDef(stopper)) }, 'Despeje bloqueado', `¡Bloquean el despeje de ${pN}!`, { turnover: true });
+        return out({ kind: 'punt', land: Math.min(landY, ytg + 6), ret: td ? 99 : retY, fair, touchback: tb, result: td ? 'td' : '', offR: roster({ p: punter }), defR: roster({ ret, ...allDef(stopper) }) }, td ? 'Retorno para TD' : 'Despeje', td ? `¡${ret || 'El regresador'} devuelve el despeje hasta la zona de anotación!` : tb ? `Despeje de ${yd(landY)} de ${pN}: touchback` : fair ? `Despeje de ${yd(landY)} de ${pN}; ${ret || 'el regresador'} pide fair catch` : `Despeje de ${yd(landY)} de ${pN}; ${ret || 'el regresador'} lo regresa ${yd(retY)}`);
     }
     if (/field goal/.test(type)) {
         const kicker = pick(re(NAME + String.raw`\s+\d+\s+yard field goal`), text);
@@ -326,7 +348,7 @@ function mapPlay(p, G) {
         const blocked = /blocked/i.test(type + text);
         const good = !blocked && /good/i.test(type + text) && !/no good|missed/i.test(type + text);
         const miss = /left/i.test(text) ? 'left' : 'right';
-        return out({ kind: 'fg', result: blocked ? 'blocked' : good ? 'good' : 'miss', miss, offR: roster({ k: kicker }), defR: roster(allDef(stopper)) }, 'Gol de campo', blocked ? `¡Bloquean el gol de campo${yds ? ` de ${yds} yardas` : ''}!` : good ? `Gol de campo${yds ? ` de ${yds} yardas` : ''} de ${kicker}: ¡es bueno!` : `${kicker || 'El pateador'} falla el gol de campo${yds ? ` de ${yds} yardas` : ''}`, { turnover: !good });
+        return out({ kind: 'fg', result: blocked ? 'blocked' : good ? 'good' : 'miss', miss, offR: roster({ k: kicker }), defR: roster(allDef(stopper)) }, 'Gol de campo', blocked ? `¡Bloquean el gol de campo${yds ? ` de ${yds} yardas` : ''}!` : good ? `Gol de campo${yds ? ` de ${yds} yardas` : ''}${kicker ? ` de ${kicker}` : ''}: ¡es bueno!` : `${kicker || 'El pateador'} falla el gol de campo${yds ? ` de ${yds} yardas` : ''}`, { turnover: !good });
     }
     if (/extra point/.test(type)) {
         const kicker = pick(re(NAME + String.raw`\s+extra point`), text);
@@ -343,7 +365,7 @@ function mapPlay(p, G) {
     const defR = roster(allDef(stopper));
     if (/sack/.test(type) || / sacked /i.test(text)) {
         const safety = /safety/i.test(type + text);
-        return out({ kind: 'sack', gain: Math.min(-1, gain), result: safety ? 'safety' : '', offR: roster({ qb: passer }), defR }, safety ? 'Safety' : 'Sack', safety ? `¡Safety! Capturan a ${passer} en su propia zona` : `Sack: ${stopper || 'la defensa'} captura a ${passer || 'el QB'}, ${gainEs(gain)}`, { yards: gain });
+        return out({ kind: 'sack', gain: Math.min(-1, gain), result: safety ? 'safety' : '', offR: roster({ qb: passer }), defR }, safety ? 'Safety' : 'Sack', safety ? `¡Safety! Capturan a ${qbN} en su propia zona` : `Sack: ${stopper || 'la defensa'} captura a ${qbN}, ${gainEs(gain)}`, { yards: gain });
     }
     if (/interception/.test(type) || /INTERCEPTED/i.test(text)) {
         const by = pick(re(String.raw`INTERCEPTED by ` + NAME), text);
@@ -353,9 +375,10 @@ function mapPlay(p, G) {
         const variant = /deep/i.test(text) ? 'deep' : catchU > 10 ? 'medium' : 'short';
         const dir = SIDE(text);
         const tgt = dir < 0 ? ['X', variant === 'deep' ? 'go' : 'out'] : dir > 0 ? ['Z', variant === 'deep' ? 'go' : 'out'] : ['SL', 'slant'];
-        return out({ kind: 'pass', variant, result: 'int', catchU: Math.max(2, catchU), ret, pick6: td, target: tgt[0], route: tgt[1], offR: roster({ qb: passer, [tgt[0].toLowerCase()]: target }), defR: roster(allDef(by)) }, td ? 'Pick-six' : 'Intercepción', td ? `¡Pick-six! ${by} intercepta a ${passer} y anota` : `¡Intercepción! ${by} se roba el pase de ${passer} y lo regresa ${ret} yardas`, { turnover: true });
+        const byN = by || 'la defensa';
+        return out({ kind: 'pass', variant, result: 'int', catchU: Math.max(2, catchU), ret, pick6: td, target: tgt[0], route: tgt[1], offR: roster({ qb: passer, [tgt[0].toLowerCase()]: target }), defR: roster(allDef(by)) }, td ? 'Pick-six' : 'Intercepción', td ? `¡Pick-six! ${byN} intercepta a ${qbN} y anota` : `¡Intercepción! ${byN} se roba el pase de ${qbN} y lo regresa ${yd(ret)}`, { turnover: true });
     }
-    if (/fumble/.test(type) || /FUMBLES/i.test(text)) {
+    if ((/fumble/.test(type) || /FUMBLES/i.test(text)) && !ownFumble) {
         const recBy = /RECOVERED by ([A-Z]{2,3})/i.exec(text)?.[1];
         const lost = /opponent/.test(type) || (!!recBy && recBy !== offAbbr);
         const who = pick(re(NAME + String.raw`\s+FUMBLES`), text) || rusher || passer;
@@ -373,15 +396,15 @@ function mapPlay(p, G) {
         const routeBy = { deep: dir < 0 ? ['X', 'go'] : dir > 0 ? ['Z', 'corner'] : ['Z', 'post'], medium: dir < 0 ? ['X', 'out'] : dir > 0 ? ['Z', 'out'] : ['Z', 'dig'], short: dir < 0 ? ['SL', 'slant'] : dir > 0 ? ['TE', 'out'] : ['SL', 'slant'] };
         const [tid, route] = variant === 'screen' ? ['RB', 'screen'] : routeBy[variant];
         const offR = roster({ qb: passer, [tid.toLowerCase()]: target });
-        if (incomplete) return out({ kind: 'pass', variant, result: 'incomplete', target: tid, route, offR, defR, downs }, 'Incompleto', `Pase incompleto de ${passer}${target ? ` hacia ${target}` : ''}`, { yards: 0, turnover: downs });
-        return out({ kind: 'pass', variant, gain: Math.min(gain, ytg), result: td ? 'td' : '', first, downs, target: tid, route, offR, defR }, td ? 'TD por aire' : 'Pase', td ? `¡Touchdown! Pase de ${gain} yardas de ${passer} a ${target}` : `Pase ${deep ? 'profundo ' : ''}de ${passer} a ${target}: ${gainEs(gain)}`, { yards: gain, turnover: downs });
+        if (incomplete) return out({ kind: 'pass', variant, result: 'incomplete', target: tid, route, offR, defR, downs }, 'Incompleto', `Pase incompleto de ${qbN}${target ? ` hacia ${target}` : ''}`, { yards: 0, turnover: downs });
+        return out({ kind: 'pass', variant, gain: Math.min(gain, ytg), result: td ? 'td' : '', first, downs, target: tid, route, offR, defR }, td ? 'TD por aire' : 'Pase', td ? `¡Touchdown! Pase de ${yd(gain)} de ${qbN} a ${tgN}` : `Pase ${deep ? 'profundo ' : ''}de ${qbN} a ${tgN}: ${gainEs(gain)}${fumbleNote}`, { yards: gain, turnover: downs });
     }
     if (/rush/.test(type) || rusher) {
-        if (/scrambles/i.test(text)) return out({ kind: 'scramble', gain: Math.min(gain, ytg), slide: /slid/i.test(text), result: td ? 'td' : '', first, downs, offR: roster({ qb: rusher }), defR }, td ? 'TD por tierra' : 'Scramble', td ? `¡${rusher} sale corriendo y anota!` : `${rusher} sale corriendo: ${gainEs(gain)}`, { yards: gain, turnover: downs });
+        if (/scrambles/i.test(text)) return out({ kind: 'scramble', gain: Math.min(gain, ytg), slide: /slid/i.test(text), result: td ? 'td' : '', first, downs, offR: roster({ qb: rusher }), defR }, td ? 'TD por tierra' : 'Scramble', td ? `¡${rbN} sale corriendo y anota!` : `${rbN} sale corriendo: ${gainEs(gain)}${fumbleNote}`, { yards: gain, turnover: downs });
         const outside = /\bend\b/i.test(text);
         const where = /up the middle/i.test(text) ? 'por el medio' : `por la ${SIDE(text) < 0 ? 'izquierda' : 'derecha'}`;
         const sneak = dist <= 1 && gain <= 2 && /up the middle/i.test(text) && rusher && rusher === passer;
-        return out({ kind: 'run', variant: sneak ? 'sneak' : outside ? 'outside' : 'inside', side: SIDE(text) || undefined, gain: Math.min(gain, ytg), result: td ? 'td' : '', first, downs, offR: roster({ rb: rusher, qb: sneak ? rusher : '' }), defR }, td ? 'TD por tierra' : 'Carrera', td ? `¡Touchdown! ${rusher} corre ${gain} yardas ${where}` : `${rusher} corre ${where}: ${gainEs(gain)}`, { yards: gain, turnover: downs });
+        return out({ kind: 'run', variant: sneak ? 'sneak' : outside ? 'outside' : 'inside', side: SIDE(text) || undefined, gain: Math.min(gain, ytg), result: td ? 'td' : '', first, downs, offR: roster({ rb: rusher, qb: sneak ? rusher : '' }), defR }, td ? 'TD por tierra' : 'Carrera', td ? `¡Touchdown! ${rbN} corre ${yd(gain)} ${where}` : `${rbN} corre ${where}: ${gainEs(gain)}${fumbleNote}`, { yards: gain, turnover: downs });
     }
     // Lo que no se sabe animar queda en la lista con el texto oficial
     return [{ ...r, label: p.type?.text || 'Jugada', es: text, pts }];

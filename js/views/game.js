@@ -71,6 +71,15 @@ export function gameView(el, { id, play: focusPlay }) {
         pv.spec.jerseys = Object.fromEntries(names.map((n) => [n, X.find(n)?.jersey]).filter(([, j]) => j));
         return pv;
     };
+    /** La jugada armada para el campo; si algo de ESPN viene raro, null (se muestra solo el texto) */
+    const built = (r) => {
+        try {
+            const { spec, view } = specFor(r);
+            return { play: buildPlay(spec), view };
+        } catch {
+            return null;
+        }
+    };
     /** Fotos y papel de los que participan en la jugada («En la jugada») */
     const whoHtml = (r) =>
         (r.who || []).length
@@ -343,7 +352,6 @@ export function gameView(el, { id, play: focusPlay }) {
         const box = $('.st-box .stage', slot);
         const s = storySlides()[storyIdx];
         if (box && s?.rec) {
-            const { spec, view } = specFor(s.rec);
             storyStage = new Stage(box, {
                 onEnd: () => {
                     storyTimer = setTimeout(() => {
@@ -354,9 +362,12 @@ export function gameView(el, { id, play: focusPlay }) {
                     }, 1400);
                 }
             });
-            storyStage.setTeams(view.left, view.right);
-            storyStage.load(buildPlay(spec), view);
-            storyStage.start();
+            const b = built(s.rec);
+            if (b) {
+                storyStage.setTeams(b.view.left, b.view.right);
+                storyStage.load(b.play, b.view);
+                storyStage.start();
+            }
         }
     }
 
@@ -398,10 +409,11 @@ export function gameView(el, { id, play: focusPlay }) {
         if (!r?.spec || !gc) return;
         clearTimeout(follTimer);
         gcIdx = i;
-        const { spec, view } = specFor(r);
-        gc.show(buildPlay(spec), view, r);
+        const b = built(r);
+        if (b) gc.show(b.play, b.view, r);
         $('.gc-title', el).innerHTML = `<b>${esc(r.label)}</b> <span class="muted">${esc(qShort(r.q))} ${esc(r.clock)}${r.downText ? ` · ${esc(r.downText)}` : ''}</span><p>${esc(r.es || '')}</p>${whoHtml(r)}`;
-        gc.start();
+        if (b) gc.start();
+        else if (follow) follTimer = setTimeout(() => gcStep(1), 1500);
     }
     const big = (r) => r.pts || r.turnover || r.flag || Math.abs(r.yards ?? 0) >= 20 || r.kind === 'sack';
     const gcStep = (d, onlyBig) => {
@@ -550,9 +562,13 @@ export function gameView(el, { id, play: focusPlay }) {
             const box = document.createElement('div');
             box.className = 'pr-exp';
             row.after(box);
+            const b = built(r);
+            if (!b) {
+                box.innerHTML = '<p class="muted">Esta jugada no se puede animar; arriba está lo que pasó.</p>';
+                return;
+            }
             sheetPlayer = new PlayerView(box, {});
-            const { spec, view } = specFor(r);
-            sheetPlayer.show(buildPlay(spec), view, r);
+            sheetPlayer.show(b.play, b.view, r);
             sheetPlayer.start();
             requestAnimationFrame(() => row.scrollIntoView({ behavior: 'smooth', block: 'start' }));
         };

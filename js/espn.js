@@ -48,6 +48,7 @@ export const DIVISIONS = {
     'NFC Oeste': ['ARI', 'LAR', 'SF', 'SEA']
 };
 const COLORS = { ARI: '97233f', ATL: 'a71930', BAL: '241773', BUF: '00338d', CAR: '0085ca', CHI: '0b162a', CIN: 'fb4f14', CLE: '472a08', DAL: '002a5c', DEN: 'fb4f14', DET: '0076b6', GB: '203731', HOU: '03202f', IND: '002c5f', JAX: '006778', KC: 'e31837', LV: '000000', LAC: '0080c6', LAR: '003594', MIA: '008e97', MIN: '4f2683', NE: '002244', NO: 'b39b6b', NYG: '0b2265', NYJ: '125740', PHI: '004c54', PIT: '000000', SF: 'aa0000', SEA: '002244', TB: 'd50a0a', TEN: '0c2340', WSH: '5a1414' };
+export const colorOf = (abbr) => (COLORS[abbr] ? `#${COLORS[abbr]}` : null);
 export const divisionOf = (abbr) => Object.keys(DIVISIONS).find((d) => DIVISIONS[d].includes(abbr)) || '';
 export const logoOf = (abbr) => `https://a.espncdn.com/i/teamlogos/nfl/500/${String(abbr).toLowerCase()}.png`;
 export const headshot = (id) => `https://a.espncdn.com/i/headshots/nfl/players/full/${id}.png`;
@@ -93,6 +94,16 @@ export const scoreboard = ({ week, seasontype, dates } = {}) => {
     if (dates) q.set('dates', dates);
     return get(`${SITE}/scoreboard${q.toString() ? `?${q}` : ''}`, 20);
 };
+
+/** Todas las tarjetas de un marcador (un juego raro no tumba la lista) */
+export const eventCards = (sb) =>
+    (sb?.events || []).flatMap((e) => {
+        try {
+            return [eventCard(e)];
+        } catch {
+            return [];
+        }
+    });
 
 /** Un juego del marcador listo para su tarjeta */
 export function eventCard(e) {

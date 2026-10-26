@@ -1296,11 +1296,19 @@ function buildPunt(P) {
         pursue(P, cover, tk + 0.2, tl, ct, { stop: 2.2, spread: 3 });
         return P.end(tl + 0.35, 2.2);
     }
-    const E = P.fit([L[0] - s.ret, L[1] + (r() - 0.5) * 12]);
+    const td = s.result === 'td';
+    const E = P.fit(td ? [-P.own - 2.5, (r() - 0.5) * 10] : [L[0] - s.ret, L[1] + (r() - 0.5) * 12]);
     const mid = P.fit([lerp(L[0], E[0], 0.5), lerp(L[1], E[1], 0.5) + (r() - 0.5) * 8]);
     const tEnd = PR.run(tl + 0.1, [mid, E], 8.2, 0.3);
     P.draw(PR, tl, tEnd, 'run');
-    pursue(P, cover, tk + 0.1, tEnd, ct, { stop: 1.2 });
+    pursue(P, cover, tk + 0.1, tEnd, ct, { stop: td ? 3 : 1.2 });
+    if (td) {
+        const tg = crossTime(PR, tl, tEnd, (p) => p[0] <= -P.own);
+        scoreTD(P, tg, E, 'def');
+        P.say(tl, `${nm(PR)} atrapa el balón y arranca el retorno`);
+        P.say(tg, `¡Retorno de despeje para touchdown de ${nm(PR)}! +6`);
+        return P.end(tEnd + 0.3, 2.6);
+    }
     const tk2 = tackle(P, PR, tEnd, E, cover);
     P.ev(tEnd + 0.05, 'pop', { at: E, text: `RETORNO ${s.ret}`, tone: 'white' });
     P.say(tl, `${nm(PR)} atrapa el balón y empieza el retorno`);
@@ -1698,7 +1706,7 @@ function penaltyWrap(P) {
     }
     const after = pen.code === 'roughing' || pen.code === 'facemask' || (pen.enforce === 'end' && m.gain != null);
     const base = pen.code === 'dpi' ? (m.spot ?? 0) : after ? (m.gain ?? 0) : 0;
-    const to = pen.to ?? foulSpot(pen.code, P.ytg, base);
+    const to = pen.to ?? (FOULS[pen.code] ? foulSpot(pen.code, P.ytg, base) : base + (f.team === 'off' ? -f.yards : f.yards));
     const from = after ? base : 0;
     const te = P.whistle + 1.4;
     const move = to - from;
