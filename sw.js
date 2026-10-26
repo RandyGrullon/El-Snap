@@ -1,5 +1,5 @@
 // Service worker de El Snap: guarda la app para que funcione sin internet y se actualiza sola en segundo plano.
-const VERSION = 'elsnap-v3';
+const VERSION = 'elsnap-v4';
 const FONTS = 'elsnap-fonts';
 const SHELL = [
     './',
@@ -68,5 +68,17 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(fetch(request).catch(() => caches.match('index.html')));
         return;
     }
-    event.respondWith(fresh(VERSION, request));
+    event.respondWith(networkFirst(request));
 });
+
+// La app: primero la red (así cada versión nueva llega al momento) y, sin conexión, lo guardado
+const networkFirst = (request) =>
+    caches.open(VERSION).then(async (cache) => {
+        try {
+            const res = await fetch(request);
+            if (res && res.ok) cache.put(request, res.clone());
+            return res;
+        } catch {
+            return (await cache.match(request, { ignoreSearch: true })) || Response.error();
+        }
+    });
