@@ -253,6 +253,12 @@ class Play {
             this.ev(f.t, 'flag', { from, to: f.at, t1: f.t + 0.75, color: f.color || 'yellow' });
         }
         this.dur = Math.min(MAX_T - 0.2, Math.max(this.dur, tw + this.after));
+        // Protagonistas (llevan su nombre en el campo): quien tuvo el balón, quien taclea, el pateador y quien captura
+        for (const b of this.ball) if (b.k === 'hold') b.who.key = true;
+        if (this.marks.tackler) this.marks.tackler.key = true;
+        if (this.by.K) this.by.K.key = true;
+        if (this.kind === 'sack') this.by.DE1.key = true;
+        if (this.spec.result === 'blocked' && this.by.D3) this.by.D3.key = true;
         this.events.sort((a, b) => a.t - b.t);
         this.steps.sort((a, b) => a.t - b.t);
     }
@@ -1749,5 +1755,14 @@ export function buildPlay(spec) {
     if (spec.kind === 'presnap' || spec.penalty) penaltyWrap(P);
     challengeWrap(P);
     P.finalize();
+    // Números reales de los jugadores (juegos de la NFL): «P.Mahomes» → 15
+    if (spec.jerseys)
+        for (const a of P.actors) {
+            const j = a.name && spec.jerseys[a.name];
+            if (j) {
+                a.num = j;
+                a.realNum = true;
+            }
+        }
     return P;
 }

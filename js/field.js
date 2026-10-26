@@ -233,6 +233,15 @@ export class Stage {
             const t = mk('text', { class: ref ? 'pl-t ref' : 'pl-t', 'font-size': label.length > 1 ? 0.82 : 1 }, body);
             t.textContent = label;
             if (!ref) t.style.fill = inkOn(team.color);
+            // Nombre y número de los protagonistas de la jugada
+            if (a.key && a.name && !/^(el|la) /i.test(a.name)) {
+                const txt = `${a.realNum ? `#${a.num} ` : ''}${a.name}`;
+                const tag = mk('g', { class: 'ntag' }, g);
+                const w = txt.length * 0.52 + 1.1;
+                mk('rect', { x: -w / 2, y: 1.45, width: w, height: 1.45, rx: 0.72, fill: 'rgba(11,12,16,.82)', stroke: team.color, 'stroke-width': 0.14 }, tag);
+                const nt = mk('text', { y: 2.5, class: 'ntag-t' }, tag);
+                nt.textContent = txt;
+            }
             return { a, g, body, down: downAt.get(a) ?? 1e9 };
         });
         this.carrierRing = mk('circle', { r: 1.65, fill: 'none', stroke: '#facc15', 'stroke-width': 0.22, opacity: 0 }, this.gUnder);

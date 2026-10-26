@@ -1,35 +1,37 @@
 # El-Snap
 
-**El Snap** es una PWA de fútbol americano jugada a jugada, con la misma estética de El Play: cada jugada animada sobre el terreno, el pase de dónde a dónde, los pañuelos de los árbitros, cómo se anota y una guía para entenderlo todo. Funciona sin internet y se instala como app.
+**El Snap** es El Play para la NFL: la misma app (pantallas, estilo y forma de usarla) con los juegos reales de la NFL, donde **cada jugada se ve animada en el campo** con los jugadores que participan. Es una PWA: funciona en el teléfono y en la computadora, se instala sin tienda y la parte que no depende de internet funciona sin conexión.
 
-## Qué trae
+En producción: **https://el-snap.vercel.app**
 
-- **NFL**: los juegos reales de la semana (en vivo, finales y próximos) con los datos públicos de ESPN. Cada jugada del juego se anima en el terreno con los equipos, colores, logos y nombres reales; el texto se pasa al español y se muestra también el texto oficial. En vivo se actualiza solo cada 15 segundos y puede seguir el juego jugada a jugada, o mostrar solo lo mejor (anotaciones, pérdidas de balón, pañuelos y jugadas grandes).
-- **Práctica**: un juego simulado completo (4 cuartos, reloj, downs, posesiones, prórroga) entre los Tiburones y los Volcanes, equipos inventados. Marcador tipo odómetro, probabilidad de ganar, jugada a jugada por series y repetición de cualquier jugada.
-- **Todas las animaciones**: 49 jugadas animadas en 7 categorías, cada una con su explicación y el paso a paso sincronizado.
-- **Puntos**: las 6 formas de anotar animadas, marcador por cuarto, anotaciones del juego y estadísticas.
-- **Guía**: el terreno con sus partes numeradas, las reglas por puntos, las posiciones, un glosario y los ajustes.
+## Pantallas (como en El Play)
 
-En cada jugada se ve:
+- **Juegos:** la portada de El Play. Fecha y título, los escudos de los equipos del día (anillo rojo si juegan ahora), los días de la semana y las tarjetas de cada juego:
+  - por empezar: hora, cuenta regresiva, TV, estadio, apuestas y el botón «Avisarme»;
+  - en vivo: el marcador con los colores de cada equipo, quién tiene el balón, el down y la yarda en un campito;
+  - final: el marcador y las figuras del juego.
+- **El juego:** el marcador partido con los colores de cada equipo.
+  - **En vivo** (se actualiza cada 10 s): la situación (down, distancia, yarda, zona roja), **el campo que anima cada jugada nueva** y sigue el juego solo, los jugadores que participan en la jugada (con foto, papel y número), los jugadores del juego (el QB en grande y las figuras), el marcador por cuartos, las últimas jugadas estilo chat (toca una para verla), así va el juego (probabilidad de ganar y las jugadas que más pesaron) y los detalles.
+  - **Final:** la historia de «la jugada del juego» con la jugada animada, las figuras, el marcador por cuartos y las anotaciones; luego así va el juego, las anotaciones, el mapa de series y los detalles.
+  - **Previa:** probabilidad de victoria, hora y lugar, quiénes destacan, cómo llegan y lesionados.
+  - Hojas **Jugadas** (todas, por serie; al tocar una se anima ahí mismo) y **Box score** (comparación y números de cada jugador).
+- **Botón rojo:** los juegos en vivo ahora mismo (o los próximos).
+- **Posiciones:** por división (la tarjeta grande del primero y las filas de los demás) y la siembra de playoffs, y los **Líderes** de la temporada.
+- **Jugadas:** las 49 animaciones de El Snap para aprender (carreras, pases, defensa, patadas, anotaciones, pañuelos y reloj).
+- **Más:** instalar, tema, animaciones de jugadas (todas, solo las grandes o apagadas), velocidad, pizarra, vibración, y Aprende: cómo se anota, el terreno y las reglas, y un juego de práctica simulado.
+
+## Qué se ve en cada jugada
 
 - Los 22 jugadores y los 5 árbitros moviéndose, con la cámara siguiendo al balón (o el campo completo).
-- La **pizarra**: las rutas dibujadas antes del snap.
-- El **pase de dónde a dónde**: de qué yarda lanza, dónde atrapa, yardas en el aire y yardas tras atrapar.
-- El rastro del balón (por tierra y por aire), los contactos, las primeras y 10 y las anotaciones.
-- El **pañuelo amarillo** volando desde el árbitro, la tarjeta de la falta con su señal y el castigo de yardas animado; el **pañuelo rojo** del desafío y la revisión.
+- Los protagonistas con su número y su nombre real: el que lanza, el que atrapa, el que corre, el que taclea, el que patea, el que regresa.
+- La **pizarra** con las rutas antes del snap, el **pase de dónde a dónde** (de qué yarda lanza, dónde atrapa, yardas en el aire y tras atrapar) y el rastro del balón.
+- El **pañuelo amarillo** volando desde el árbitro, la tarjeta de la falta y el castigo de yardas; el **pañuelo rojo** del desafío.
+- Las tarjetas de touchdown, gol de campo, intercepción, sack… con el color del equipo, y el paso a paso narrado en español.
 - Una barra de tiempo para pausar, adelantar o regresar, y velocidad 0.5× / 1× / 2×.
 
-## Todas las animaciones
+## Datos
 
-| Categoría | Jugadas |
-| --- | --- |
-| Carreras | Carrera por el medio · Carrera por fuera (barrida) · QB sneak · Jet sweep con movimiento antes del snap · Scramble del QB · Touchdown por tierra · Primera y 10 |
-| Pases | Pase corto (slant) · Pase medio (cruce) · Pase profundo (bomba) · Pantalla (screen) · Play-action · Touchdown por aire · Pase incompleto · Ave María (Hail Mary) · Flea flicker · Spike |
-| Defensa | Sack · Intercepción · Pick-six · Balón suelto (fumble) · Scoop and score · Safety · Cuarta oportunidad fallida |
-| Patadas | Patada inicial con retorno · Touchback · Retorno para touchdown · Patada corta (onside) · Despeje con retorno · Fair catch · Despeje a la zona (touchback) · Gol de campo · Gol de campo fallado · Patada bloqueada |
-| Anotaciones | Punto extra · Conversión de 2 por tierra · Conversión de 2 por pase · Conversión fallida |
-| Pañuelos y reglas | Holding · Salida en falso · Fuera de lugar · Retraso de juego · Interferencia de pase · Rudeza contra el pasador · Facemask · Desafío (pañuelo rojo) |
-| Reloj | Tiempo fuera · Aviso de 2 minutos · Rodilla (kneel) |
+Los juegos vienen de los datos públicos de ESPN (`site.api.espn.com`, sin clave). Son públicos pero no oficiales: pueden cambiar sin aviso. Algunas redes de trabajo o escuela los bloquean; en ese caso la app lo avisa. La posición exacta de cada jugador en el campo es una recreación a partir de lo que dice cada jugada (tipo, yardas, yarda de inicio, down y texto oficial).
 
 ## Correrla en tu computadora
 
@@ -43,14 +45,13 @@ Luego abre `http://localhost:5173`. El service worker solo funciona en `localhos
 
 ## Estructura
 
-- `index.html`: las 4 pestañas.
-- `css/app.css`: estilos con los tokens de El Play (claro y oscuro).
+- `index.html`: la base; cada pantalla la arma `js/views/`.
+- `css/app.css` y `css/elplay.css`: los tokens y las piezas de El Play (claro y oscuro).
+- `js/app.js`: rutas, la barra de abajo y el botón rojo de en vivo.
+- `js/views/`: `home.js` (Juegos), `game.js` (el juego), `standings.js` (Posiciones y Líderes), `more.js` (Más), `learn.js` (Jugadas, cómo se anota, la guía y la práctica).
+- `js/espn.js`: los datos de ESPN (juegos, juego completo, posiciones, líderes, jugadores).
+- `js/nfl.js`: traduce cada jugada de ESPN a una animación y al español.
 - `js/plays.js`: el motor de jugadas (posiciones cuadro a cuadro, balón, árbitros, pañuelos, efectos y pasos).
 - `js/field.js`: el terreno en SVG, la cámara y el dibujo de cada jugada.
-- `js/game.js`: el juego simulado (reloj, downs, anotaciones, faltas, desafíos, tiempos fuera).
-- `js/catalog.js`: la lista de todas las animaciones.
-- `js/nfl.js`: los juegos reales de la NFL: lee ESPN y traduce cada jugada (tipo, yardas, yarda de inicio, down y texto oficial) a una animación.
-
-Los datos de la NFL vienen de `site.api.espn.com`, una fuente pública y sin clave pero no oficial: puede cambiar sin aviso. Algunas redes de trabajo o escuela la bloquean; en ese caso la app lo avisa y ofrece la práctica.
-- `js/app.js`: la interfaz.
+- `js/game.js` y `js/catalog.js`: el juego de práctica y la lista de animaciones.
 - `sw.js` y `manifest.webmanifest`: la parte PWA.

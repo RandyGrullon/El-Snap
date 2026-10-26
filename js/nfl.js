@@ -146,6 +146,24 @@ const ord = (d) => `${d}ª`;
 const gainEs = (g) => (g > 0 ? `gana ${g} ${g === 1 ? 'yarda' : 'yardas'}` : g < 0 ? `pierde ${-g} ${g === -1 ? 'yarda' : 'yardas'}` : 'sin ganancia');
 const hash = (s) => [...String(s)].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 11);
 
+/** Quiénes participan en la jugada, con su papel: [['Lanza', 'P.Mahomes'], ['Atrapa', 'T.Kelce'], ['Taclea', …]] */
+function whoOf(spec) {
+    const o = spec.offR || {};
+    const d = spec.defR || {};
+    const list = [];
+    const push = (role, x) => {
+        if (x && x.n && !/^(el|la) /.test(x.n) && !list.some(([, n]) => n === x.n)) list.push([role, x.n]);
+    };
+    push(spec.kind === 'scramble' ? 'Corre' : /sack|kneel|spike/.test(spec.kind) ? 'QB' : 'Lanza', o.qb);
+    push('Corre', o.rb);
+    for (const k of ['x', 'z', 'sl', 'te']) push('Atrapa', o[k]);
+    push('Patea', o.k);
+    push('Despeja', o.p);
+    push('Regresa', d.ret);
+    push(spec.kind === 'sack' ? 'Captura' : spec.result === 'int' ? 'Intercepta' : spec.fumble ? 'Recupera' : 'Taclea', d.lb);
+    return list;
+}
+
 // ---------------------------------------------------------------- De ESPN al motor
 
 /**
@@ -243,7 +261,7 @@ function mapPlay(p, G) {
     const seed = hash(p.id || text);
     const r = { ...base, team: off, ytg, downText: down ? `${ord(down)} y ${dist >= ytg ? 'gol' : dist}` : null, spot: s0.possessionText || '', firstX: down && dist < ytg ? dist : null };
     const pts = scorer >= 0 ? { team: scorer, n: scored[scorer], abbr: G.teams[scorer].abbr } : null;
-    const out = (spec, label, es, extra = {}) => [{ ...r, spec: { seed, ytg, offR: roster(), defR: roster(), ...spec }, kind: spec.kind, label, es, pts, yards: extra.yards ?? null, first: !!spec.first, turnover: !!extra.turnover, flag: !!spec.penalty, ...extra }];
+    const out = (spec, label, es, extra = {}) => [{ ...r, spec: { seed, ytg, offR: roster(), defR: roster(), ...spec }, who: whoOf(spec), kind: spec.kind, label, es, pts, yards: extra.yards ?? null, first: !!spec.first, turnover: !!extra.turnover, flag: !!spec.penalty, ...extra }];
 
     // Nombres
     const passer = pick(re(NAME + String.raw`\s+(?:pass|sacked|scrambles|spiked|kneels)`), text);
@@ -397,6 +415,7 @@ export function splitPats(recs) {
             flag: false,
             kind: two ? '2pt' : 'xp',
             label: two ? 'Conversión de 2' : 'Punto extra',
+            who: kicker && !two ? [['Patea', kicker]] : [],
             es: two ? `Conversión de 2: ${extra === 2 ? '¡buena!' : 'falla'}` : `Punto extra${kicker ? ` de ${kicker}` : ''}: ${extra >= 1 ? 'bueno' : 'fallado'}`,
             before: { score: tdScore },
             pts: extra > 0 ? { ...r.pts, n: extra } : null,
