@@ -1,0 +1,26 @@
+{
+  "name": "El Snap · Fútbol americano jugada a jugada",
+  "short_name": "El Snap",
+  "description": "Cada jugada de fútbol americano animada en el terreno: el pase de dónde a dónde, los pañuelos, los puntos y la guía para entenderlo todo.",
+  "lang": "es",
+  "dir": "ltr",
+  "id": "./",
+  "start_url": "./#vivo",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0c10",
+  "theme_color": "#0b0c10",
+  "categories": ["sports", "education", "entertainment"],
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Juego en vivo", "url": "./#vivo", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Todas las animaciones", "url": "./#jugadas", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Cómo se anota", "url": "./#puntos", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
