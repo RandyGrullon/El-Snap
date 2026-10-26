@@ -5,10 +5,17 @@ import { FOULS, foulSpot } from './plays.js';
 
 const API = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl';
 
-async function getJSON(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+/** Pide JSON y se rinde a los 12 s (hay redes que dejan la conexión colgada en vez de rechazarla) */
+async function getJSON(url, ms = 12000) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), ms);
+    try {
+        const res = await fetch(url, { signal: ctl.signal });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 /** Juegos de una semana (sin semana: la actual) */
