@@ -15,6 +15,12 @@ const bounce = (t) => {
     return 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2);
 };
 
+/** Texto que se lee sobre un color (oscuro sobre colores claros, como inkOn de El Play) */
+const inkOn = (hex) => {
+    const v = parseInt(String(hex).replace('#', '').slice(0, 6), 16);
+    return 0.299 * ((v >> 16) & 255) + 0.587 * ((v >> 8) & 255) + 0.114 * (v & 255) > 160 ? '#14151a' : '#ffffff';
+};
+
 const mk = (tag, attrs = {}, parent) => {
     const e = document.createElementNS(NS, tag);
     for (const k in attrs) e.setAttribute(k, attrs[k]);
@@ -226,6 +232,7 @@ export class Stage {
             const label = a.label.length > 2 ? a.label.slice(0, 2) : a.label;
             const t = mk('text', { class: ref ? 'pl-t ref' : 'pl-t', 'font-size': label.length > 1 ? 0.82 : 1 }, body);
             t.textContent = label;
+            if (!ref) t.style.fill = inkOn(team.color);
             return { a, g, body, down: downAt.get(a) ?? 1e9 };
         });
         this.carrierRing = mk('circle', { r: 1.65, fill: 'none', stroke: '#facc15', 'stroke-width': 0.22, opacity: 0 }, this.gUnder);

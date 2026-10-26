@@ -56,6 +56,17 @@ export const FOULS = {
     facemask: { name: 'Agarrar la máscara (facemask)', team: 'def', yards: 15, when: 'during', signal: 'Jala la máscara', say: '15 yardas más desde donde terminó la jugada y primera y 10' }
 };
 
+/** La falta: una de las conocidas o la que trae el juego real (nombre, equipo y yardas) */
+export const foulOf = (pen) =>
+    FOULS[pen.code] || {
+        name: pen.name || 'Falta',
+        team: pen.team || 'off',
+        yards: pen.yards ?? 5,
+        when: pen.when || 'pre',
+        signal: 'Pañuelo amarillo',
+        say: pen.say || `${pen.yards ?? 5} yardas de castigo`
+    };
+
 /** Dónde queda el balón tras la falta (u desde la línea): `base` es de donde se castiga. Mitad de distancia si no caben. */
 export function foulSpot(code, ytg, base = 0) {
     const f = FOULS[code];
@@ -1580,11 +1591,16 @@ function buildPreSnap(P) {
         at = [-0.4, a.start[1]];
         P.say(0, 'El QB da la cadencia: «¡Hut, hut!»');
         P.say(tf, `El ala defensiva (#${a.num}) cruza la línea antes del snap`);
-    } else {
+    } else if (code === 'delay') {
         [3, 2, 1, 0].forEach((n, i) => P.ev(0.2 + i * 0.5, 'pop', { at: [-3.2, -3], text: `0:0${n}`, tone: n ? 'white' : 'down' }));
         tf = 1.75;
         P.say(0, 'El reloj de jugada (40 s) se está acabando');
         P.say(1.7, 'Llega a 0 y todavía no hay snap');
+    } else {
+        const f = foulOf(s.penalty);
+        at = [f.team === 'off' ? -1.2 : 1.4, 0];
+        P.say(0, 'Los equipos se ponen en la línea…');
+        P.say(tf, `Falta antes del snap: ${f.name.toLowerCase()}`);
     }
     P.flagAt(tf + 0.2, at);
     P.ev(tf + 0.95, 'pop', { at: add(at, [0, -2.6]), text: '¡PAÑUELO!', tone: 'flag' });
@@ -1621,7 +1637,7 @@ function buildTimeout(P) {
 function penaltyWrap(P) {
     const pen = P.spec.penalty;
     if (!pen) return;
-    const f = FOULS[pen.code];
+    const f = foulOf(pen);
     const by = P.by;
     const m = P.marks;
     const S = P.snap;
@@ -1666,10 +1682,18 @@ function penaltyWrap(P) {
         P.ev(tf + 0.95, 'pop', { at: add(m.E, [0, -2.6]), text: '¡PAÑUELO!', tone: 'flag' });
         P.say(tf, `${nm(m.tackler)} lo derriba agarrándolo de la máscara del casco (facemask)`);
         P.say(tf + 0.2, '¡Pañuelo amarillo! Es una falta peligrosa');
+    } else if (!FOULS[pen.code] && P.kind !== 'presnap') {
+        // Falta del juego real durante la jugada: el pañuelo cae donde termina
+        const at = m.E || [0, 0];
+        const tf = Math.max(P.snap + 0.6, (m.tEnd ?? P.whistle) - 0.4);
+        P.flagAt(tf, at);
+        P.ev(tf + 0.85, 'pop', { at: add(at, [0, -2.6]), text: '¡PAÑUELO!', tone: 'flag' });
+        P.say(tf, `¡Pañuelo amarillo! ${f.name}`);
     }
-    const base = pen.code === 'dpi' ? (m.spot ?? 0) : pen.code === 'roughing' || pen.code === 'facemask' ? (m.gain ?? 0) : 0;
+    const after = pen.code === 'roughing' || pen.code === 'facemask' || (pen.enforce === 'end' && m.gain != null);
+    const base = pen.code === 'dpi' ? (m.spot ?? 0) : after ? (m.gain ?? 0) : 0;
     const to = pen.to ?? foulSpot(pen.code, P.ytg, base);
-    const from = pen.code === 'roughing' || pen.code === 'facemask' ? base : 0;
+    const from = after ? base : 0;
     const te = P.whistle + 1.4;
     const move = to - from;
     const yards = pen.code === 'dpi' ? `balón en el lugar de la falta (${to > 0 ? '+' : ''}${Math.round(to)})` : `${move >= 0 ? '+' : '−'}${Math.abs(Math.round(move))} yardas`;
@@ -1722,7 +1746,7 @@ export function buildPlay(spec) {
     const P = new Play(spec);
     officials(P, REF_MODE[spec.kind] || 'scrim');
     BUILDERS[spec.kind](P);
-    if (spec.kind === 'presnap' || FOULS[spec.penalty?.code]) penaltyWrap(P);
+    if (spec.kind === 'presnap' || spec.penalty) penaltyWrap(P);
     challengeWrap(P);
     P.finalize();
     return P;

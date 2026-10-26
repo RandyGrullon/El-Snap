@@ -5,7 +5,7 @@
   "lang": "es",
   "dir": "ltr",
   "id": "./",
-  "start_url": "./#vivo",
+  "start_url": "./#nfl",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
@@ -19,7 +19,8 @@
     { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Juego en vivo", "url": "./#vivo", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Juegos de la NFL", "url": "./#nfl", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Juego de práctica", "url": "./#vivo", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Todas las animaciones", "url": "./#jugadas", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Cómo se anota", "url": "./#puntos", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ]

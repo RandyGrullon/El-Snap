@@ -23,7 +23,7 @@
 <body>
 <div class="app">
   <header class="top">
-    <a class="brand" href="#vivo" aria-label="El Snap, inicio">
+    <a class="brand" href="#nfl" aria-label="El Snap, inicio">
       <span id="logo" class="logo"></span>
       <span class="brand-t">El Snap</span>
       <span class="brand-badge">Fútbol americano</span>
@@ -36,8 +36,58 @@
   </header>
 
   <main>
-    <!-- En vivo -->
-    <section id="tab-vivo" class="tab active" aria-label="Juego en vivo">
+    <!-- NFL: juegos reales -->
+    <section id="tab-nfl" class="tab active" aria-label="Juegos de la NFL">
+      <div class="page-h nfl-h">
+        <h1>NFL</h1>
+        <div class="week-nav">
+          <button id="nfl-prev-week" class="btn-round sm" aria-label="Semana anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+          <span id="nfl-week">Semana</span>
+          <button id="nfl-next-week" class="btn-round sm" aria-label="Semana siguiente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+        </div>
+      </div>
+      <div id="nfl-games" class="games" role="list"></div>
+      <div id="nfl-error" class="card error" hidden>
+        <h3>No se pudo conectar</h3>
+        <p id="nfl-error-msg" class="muted"></p>
+        <div class="err-actions">
+          <button id="nfl-retry" class="pill">Reintentar</button>
+          <button id="nfl-practice" class="pill primary-pill">Ver el juego de práctica</button>
+        </div>
+      </div>
+      <div id="nfl-game" class="live-grid" hidden>
+        <div class="col-main">
+          <div id="nfl-score" class="scoreboard"></div>
+          <div class="now card">
+            <div class="now-head"><span id="nfl-live" class="live-dot" aria-label="En vivo" hidden></span><h2 id="nfl-title"></h2></div>
+            <p id="nfl-text" class="now-text"></p>
+            <p id="nfl-raw" class="raw"></p>
+          </div>
+          <div id="nfl-player"></div>
+          <div id="nfl-summary" class="summary"></div>
+          <div class="card">
+            <div class="card-h"><h3>Paso a paso</h3><span class="muted">Toca un paso para ir a ese momento</span></div>
+            <ol id="nfl-steps" class="steps"></ol>
+          </div>
+        </div>
+        <div class="col-side">
+          <div class="card wp">
+            <div class="card-h"><h3>Probabilidad de ganar</h3><span class="muted">Según ESPN</span></div>
+            <div class="wp-row"><span id="nfl-wp-ta"></span><b id="nfl-wp-pa">50%</b><div class="wp-bar"><div id="nfl-wp-a"></div></div><b id="nfl-wp-pb">50%</b><span id="nfl-wp-tb"></span></div>
+            <svg id="nfl-wp-chart" class="wp-chart" viewBox="0 0 300 64" preserveAspectRatio="none" aria-hidden="true"></svg>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>Jugada a jugada</h3><span id="nfl-count" class="muted"></span></div>
+            <div id="nfl-pbp" class="pbp"></div>
+          </div>
+          <button id="nfl-start" class="btn-wide">Ver el juego desde el inicio</button>
+          <p class="muted credit">Datos del juego: ESPN. Las animaciones salen de cada jugada (tipo, yardas, yarda de inicio y texto oficial); la posición exacta de cada jugador es una recreación.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Práctica: juego simulado -->
+    <section id="tab-vivo" class="tab" aria-label="Juego de práctica">
       <div class="live-grid">
         <div class="col-main">
           <div id="scoreboard" class="scoreboard"></div>
@@ -214,9 +264,13 @@
   </main>
 
   <nav class="tabbar" aria-label="Secciones">
-    <button data-tab="vivo" class="on" aria-current="page">
+    <button data-tab="nfl" class="on" aria-current="page">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19 5a10 10 0 0 1 0 14M5 19A10 10 0 0 1 5 5"/></svg>
-      <span>En vivo</span>
+      <span>NFL</span>
+    </button>
+    <button data-tab="vivo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 4v16M3 12h4M17 12h4"/><circle cx="12" cy="12" r="2"/></svg>
+      <span>Práctica</span>
     </button>
     <button data-tab="jugadas">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="12" rx="9.5" ry="5.6" transform="rotate(-35 12 12)"/><path d="M9.5 14.5l5-5M10.6 11.2l2.2 2.2M12.1 9.7l2.2 2.2M9.1 12.7l2.2 2.2"/></svg>

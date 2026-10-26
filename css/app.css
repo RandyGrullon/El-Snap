@@ -1790,6 +1790,170 @@ main {
     transform: translateX(18px);
 }
 
+/* ---------------------------------------------------------------- NFL: juegos de la semana y logos */
+.badge.logo {
+    background: #fff;
+}
+.badge img {
+    width: 80%;
+    height: 80%;
+    object-fit: contain;
+}
+.badge.noimg {
+    background: var(--c);
+}
+.badge.noimg::after {
+    content: attr(data-abbr);
+    font: 800 calc(var(--s) * 0.36) / 1 var(--cond);
+    color: #fff;
+}
+.pa-badge.logo {
+    background: #fff;
+}
+.pa-badge img {
+    width: 74%;
+    height: 74%;
+    object-fit: contain;
+}
+.pa-badge.noimg {
+    background: var(--team);
+}
+.pa-badge.noimg::after {
+    content: attr(data-abbr);
+    font: 800 20px/1 var(--cond);
+    color: #fff;
+}
+.btn-round.sm {
+    width: 34px;
+    height: 34px;
+}
+.btn-round.sm svg {
+    width: 16px;
+    height: 16px;
+}
+.nfl-h {
+    justify-content: space-between;
+    align-items: center;
+}
+.week-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 800;
+    font-size: 14px;
+}
+.games {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 2px 2px 12px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+}
+.games::-webkit-scrollbar {
+    display: none;
+}
+.g-card {
+    flex: none;
+    width: 150px;
+    text-align: left;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-tile);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    scroll-snap-align: start;
+    transition:
+        border-color 0.2s var(--ease),
+        box-shadow 0.2s var(--ease),
+        transform 0.15s var(--ease);
+}
+.g-card:active {
+    transform: scale(0.97);
+}
+.g-card.on {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.g-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.g-card.in .g-status {
+    color: var(--live);
+}
+.g-status .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--live);
+    flex: none;
+    animation: pulse 1.6s infinite;
+}
+.g-team {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 800;
+    font-size: 14px;
+}
+.g-team.lost {
+    opacity: 0.55;
+}
+.g-score {
+    margin-left: auto;
+    font: 800 21px/1 var(--cond);
+    font-variant-numeric: tabular-nums;
+}
+.g-card.skel {
+    height: 98px;
+    background: linear-gradient(90deg, var(--raised), var(--surface), var(--raised));
+    background-size: 200% 100%;
+    animation: skel 1.2s infinite linear;
+}
+@keyframes skel {
+    to {
+        background-position: -200% 0;
+    }
+}
+.error h3 {
+    margin-bottom: 6px;
+}
+.err-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+.primary-pill {
+    background: var(--grad);
+    color: #fff;
+}
+.raw {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: var(--faint);
+    font-style: italic;
+}
+.raw:empty {
+    display: none;
+}
+.credit {
+    font-size: 12px;
+    margin: 0 4px 14px;
+}
+
 /* ---------------------------------------------------------------- Barra de pestañas y avisos */
 .tabbar {
     position: fixed;
@@ -1805,7 +1969,7 @@ main {
     backdrop-filter: blur(16px) saturate(1.5);
     -webkit-backdrop-filter: blur(16px) saturate(1.5);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    width: min(calc(100% - 24px), 440px);
+    width: min(calc(100% - 24px), 500px);
 }
 .tabbar button {
     flex: 1;

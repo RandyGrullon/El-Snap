@@ -4,7 +4,8 @@
 
 ## Qué trae
 
-- **En vivo**: un juego simulado completo (4 cuartos, reloj, downs, posesiones, prórroga) entre los Tiburones y los Volcanes. Marcador tipo odómetro, probabilidad de ganar, jugada a jugada por series y repetición de cualquier jugada.
+- **NFL**: los juegos reales de la semana (en vivo, finales y próximos) con los datos públicos de ESPN. Cada jugada del juego se anima en el terreno con los equipos, colores, logos y nombres reales; el texto se pasa al español y se muestra también el texto oficial. En vivo se actualiza solo cada 15 segundos y puede seguir el juego jugada a jugada, o mostrar solo lo mejor (anotaciones, pérdidas de balón, pañuelos y jugadas grandes).
+- **Práctica**: un juego simulado completo (4 cuartos, reloj, downs, posesiones, prórroga) entre los Tiburones y los Volcanes, equipos inventados. Marcador tipo odómetro, probabilidad de ganar, jugada a jugada por series y repetición de cualquier jugada.
 - **Todas las animaciones**: 49 jugadas animadas en 7 categorías, cada una con su explicación y el paso a paso sincronizado.
 - **Puntos**: las 6 formas de anotar animadas, marcador por cuarto, anotaciones del juego y estadísticas.
 - **Guía**: el terreno con sus partes numeradas, las reglas por puntos, las posiciones, un glosario y los ajustes.
@@ -48,5 +49,8 @@ Luego abre `http://localhost:5173`. El service worker solo funciona en `localhos
 - `js/field.js`: el terreno en SVG, la cámara y el dibujo de cada jugada.
 - `js/game.js`: el juego simulado (reloj, downs, anotaciones, faltas, desafíos, tiempos fuera).
 - `js/catalog.js`: la lista de todas las animaciones.
+- `js/nfl.js`: los juegos reales de la NFL: lee ESPN y traduce cada jugada (tipo, yardas, yarda de inicio, down y texto oficial) a una animación.
+
+Los datos de la NFL vienen de `site.api.espn.com`, una fuente pública y sin clave pero no oficial: puede cambiar sin aviso. Algunas redes de trabajo o escuela la bloquean; en ese caso la app lo avisa y ofrece la práctica.
 - `js/app.js`: la interfaz.
 - `sw.js` y `manifest.webmanifest`: la parte PWA.

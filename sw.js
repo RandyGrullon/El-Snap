@@ -1,5 +1,5 @@
 // Service worker de El Snap: guarda la app para que funcione sin internet y se actualiza sola en segundo plano.
-const VERSION = 'elsnap-v1';
+const VERSION = 'elsnap-v2';
 const FONTS = 'elsnap-fonts';
 const SHELL = [
     './',
@@ -10,6 +10,7 @@ const SHELL = [
     'js/field.js',
     'js/game.js',
     'js/catalog.js',
+    'js/nfl.js',
     'manifest.webmanifest',
     'icons/icon.svg',
     'icons/icon-192.png',
