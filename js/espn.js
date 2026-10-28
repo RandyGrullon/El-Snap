@@ -92,7 +92,7 @@ export const scoreboard = ({ week, seasontype, dates } = {}) => {
     if (week) q.set('week', week);
     if (seasontype) q.set('seasontype', seasontype);
     if (dates) q.set('dates', dates);
-    return get(`${SITE}/scoreboard${q.toString() ? `?${q}` : ''}`, 20);
+    return get(`${SITE}/scoreboard${q.toString() ? `?${q}` : ''}`, 8);
 };
 
 /** Todas las tarjetas de un marcador (un juego raro no tumba la lista) */
@@ -146,7 +146,7 @@ export function eventCard(e) {
 
 // ---------------------------------------------------------------- Un juego completo
 
-export const summary = (id, live) => get(`${SITE}/summary?event=${id}`, live ? 12 : 60);
+export const summary = (id, live) => get(`${SITE}/summary?event=${id}`, live ? 4 : 60);
 
 /** Lo que muestra la pantalla del juego además de las jugadas (eso lo traduce nfl.js) */
 export function gameExtras(s) {

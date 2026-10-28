@@ -156,7 +156,7 @@ export function wpChart(teams, hist, o = {}) {
 
 // ---------------------------------------------------------------- Reproductor de jugadas (campo + controles)
 
-const KIND_CARD = { td: 'score', fg: 'score', xp: 'score', '2pt': 'score', safety: 'score', int: 'turn', fumble: 'turn', sack: 'turn', block: 'turn', onside: 'turn', flag: 'flag', challenge: 'challenge', review: 'review', timeout: 'neutral' };
+const KIND_CARD = { td: 'score', fg: 'score', xp: 'score', '2pt': 'score', safety: 'score', int: 'turn', fumble: 'turn', sack: 'turn', block: 'turn', onside: 'turn', big: 'turn', flag: 'flag', challenge: 'challenge', review: 'review', timeout: 'neutral' };
 const TICK_TYPES = { passline: ['Lanzamiento', 'white'], catch: ['Atrapa', 'gold'], flag: ['Pañuelo', 'flag'], score: ['Anota', 'gold'], kick: ['Patada', 'white'], burst: ['Contacto', 'white'], enforce: ['Castigo', 'flag'] };
 
 export class PlayerView {
@@ -164,6 +164,8 @@ export class PlayerView {
         this.o = o;
         this.root = root;
         root.classList.add('player');
+        // En vivo: sin barra de tiempo ni repetir; el campo va con el juego
+        root.classList.toggle('live-mode', !!o.live);
         root.innerHTML = `
 <div class="field-card">
   <div class="stage"></div>
@@ -234,6 +236,7 @@ export class PlayerView {
         };
     }
     setSpeed(s) {
+        this.speed = s;
         this.stage.speed = s;
         $$('.b-speed button', this.root).forEach((b) => b.classList.toggle('on', Number(b.dataset.s) === s));
     }
@@ -244,16 +247,17 @@ export class PlayerView {
         piz.setAttribute('aria-pressed', on);
         this.stage.render(true);
     }
-    show(play, view, meta = {}) {
+    /** opts.from / opts.smooth: ver Stage.load (las fichas salen de donde quedaron y la cámara se desliza) */
+    show(play, view, meta = {}, opts = {}) {
         this.view = view;
         this.meta = meta;
-        this.clearOverlay();
+        if (!opts.keepOverlay) this.clearOverlay();
         const key = `${view.left.id}-${view.right.id}`;
         if (this.teamsKey !== key) {
             this.stage.setTeams(view.left, view.right);
             this.teamsKey = key;
         }
-        this.stage.load(play, view);
+        this.stage.load(play, view, opts);
         $('.teams-legend', this.root).innerHTML = `<span><i style="background:${view.offTeam.color}"></i>${esc(view.offTeam.abbr)} con el balón</span><span><i style="background:${view.defTeam.color}"></i>${esc(view.defTeam.abbr)}</span><span><i class="ref"></i>Árbitros</span>`;
         const ticks = [{ t: play.snap, label: 'Snap', tone: 'white' }];
         const seen = new Set();

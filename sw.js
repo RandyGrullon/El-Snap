@@ -1,5 +1,5 @@
 ﻿// Service worker de El Snap: guarda la app para que funcione sin internet y se actualiza sola en segundo plano.
-const VERSION = 'elsnap-v5';
+const VERSION = 'elsnap-v6';
 const FONTS = 'elsnap-fonts';
 const SHELL = [
     './',

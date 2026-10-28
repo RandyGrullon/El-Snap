@@ -80,6 +80,69 @@ const forYards = (s) => {
     const m = /for (-?\d+) yards?/i.exec(s);
     return m ? Number(m[1]) : null;
 };
+/**
+ * Una jugada de ESPN contada corto en español, para la «última jugada» de la portada:
+ * «A.Rodgers pass deep right to G.Wilson for 85 yards» → «Pase de A.Rodgers a G.Wilson: gana 85 yardas».
+ * Si no se entiende, devuelve el texto de ESPN tal cual.
+ */
+export function describe(text) {
+    const t = clean(text || '');
+    if (!t) return '';
+    try {
+        const n = (after) => pick(re(NAME + after), t);
+        const g = forYards(t);
+        const td = /touchdown/i.test(t);
+        const yds = (k) => `${k} ${Math.abs(k) === 1 ? 'yarda' : 'yardas'}`;
+        const num = (rx) => rx.exec(t)?.[1];
+        if (/timeout/i.test(t)) return 'Tiempo fuera';
+        const qn = num(/end (?:of )?(?:quarter|qtr)\s*(\d)/i);
+        if (qn) return `Fin del ${qn}º cuarto`;
+        if (/end of half|halftime/i.test(t)) return 'Medio tiempo';
+        if (/end (?:of )?game/i.test(t)) return 'Final del juego';
+        if (/two.?minute/i.test(t)) return 'Aviso de 2 minutos';
+        // En un touchdown ESPN suele pegar el punto extra al final: manda el touchdown
+        const xp = td && /extra point is good/i.test(t) ? ' (y el punto extra)' : td && /two-point.*succeeds/i.test(t) ? ' (y la de 2)' : '';
+        if (!td && /extra point/i.test(t)) return `Punto extra${n(String.raw`\s+extra point`) ? ` de ${n(String.raw`\s+extra point`)}` : ''}: ${/is good/i.test(t) ? 'bueno' : 'fallado'}`;
+        if (!td && /two-point|2-point/i.test(t)) return `Conversión de 2: ${/succeeds|attempt succeeds/i.test(t) ? '¡buena!' : 'falla'}`;
+        if (/field goal/i.test(t)) {
+            const good = /is good/i.test(t);
+            const d = num(/(\d+) yard field goal/i);
+            const k = n(String.raw`\s+\d+\s+yard field goal`);
+            return `${good ? 'Gol de campo' : /blocked/i.test(t) ? '¡Bloquean el gol de campo' : 'Falla el gol de campo'}${d ? ` de ${d} yardas` : ''}${k ? ` de ${k}` : ''}${good ? ': ¡bueno!' : /blocked/i.test(t) ? '!' : ''}`;
+        }
+        if (/intercepted by/i.test(t)) {
+            const by = pick(re(String.raw`intercepted by\s+` + NAME, 'i'), t);
+            return `¡Intercepción${by ? ` de ${by}` : ''}!${td ? ' Y la regresa para touchdown' : ''}`;
+        }
+        if (/sacked/i.test(t)) return `Sack a ${n(String.raw`\s+sacked`) || 'el QB'}${g != null ? `: pierde ${yds(Math.abs(g))}` : ''}${/safety/i.test(t) ? ' · ¡safety!' : ''}`;
+        if (/ punts /i.test(t)) {
+            const d = num(/punts (\d+) yards?/i);
+            const p = n(String.raw`\s+punts`);
+            return `Despeje${d ? ` de ${d} yardas` : ''}${p ? ` de ${p}` : ''}${td ? ': ¡regreso para touchdown!' : /touchback/i.test(t) ? ': touchback' : /fair catch/i.test(t) ? ': fair catch' : ''}`;
+        }
+        if (/ kicks /i.test(t)) {
+            const d = num(/kicks (\d+) yards?/i);
+            const k = n(String.raw`\s+kicks`);
+            return `Patada${d ? ` de ${d} yardas` : ''}${k ? ` de ${k}` : ''}${td ? ': ¡regreso para touchdown!' : /touchback/i.test(t) ? ': touchback' : ''}`;
+        }
+        const fum = /fumbles/i.test(t) && /recovered by/i.test(t) ? ' · balón suelto' : '';
+        if (/ pass /i.test(t)) {
+            const qb = n(String.raw`\s+pass`) || 'el QB';
+            const to = pick(re(String.raw`(?:pass(?: incomplete)?(?: short| deep)?(?: left| middle| right)? to|intended for)\s+` + NAME), t);
+            if (/incomplete/i.test(t)) return `Pase incompleto de ${qb}${to ? ` hacia ${to}` : ''}`;
+            if (td) return `¡Touchdown! ${qb} pase${g != null ? ` de ${yds(g)}` : ''}${to ? ` a ${to}` : ''}${xp}`;
+            return `${qb} pase${g != null ? ` de ${yds(g)}` : ''}${to ? ` a ${to}` : ''}${fum}`;
+        }
+        const rb = n(String.raw`\s+(?:up the middle|left|right|scrambles|kneels|rushed|to\s|for\s)`);
+        if (/kneels/i.test(t)) return `${rb || 'El QB'} se arrodilla`;
+        if (/spiked/i.test(t)) return `${n(String.raw`\s+spiked`) || 'El QB'} clava el balón`;
+        if (rb && g != null) return td ? `¡Touchdown! ${rb} corre ${yds(g)}${xp}` : `${rb} corre: ${g > 0 ? `gana ${yds(g)}` : g < 0 ? `pierde ${yds(-g)}` : 'sin ganancia'}${fum}`;
+        if (/penalty/i.test(t)) return 'Pañuelo en la jugada';
+        return t;
+    } catch {
+        return t;
+    }
+}
 const SIDE = (s) => (/\bleft\b/i.test(s) ? -1 : /\bright\b/i.test(s) ? 1 : 0);
 
 const FOUL_MAP = [
@@ -272,7 +335,15 @@ function mapPlay(p, G) {
     const seed = hash(p.id || text);
     const r = { ...base, team: off, ytg, downText: down ? `${ord(down)} y ${dist >= ytg ? 'gol' : dist}` : null, spot: s0.possessionText || '', firstX: down && dist < ytg ? dist : null };
     const pts = scorer >= 0 ? { team: scorer, n: scored[scorer], abbr: G.teams[scorer].abbr } : null;
-    const out = (spec, label, es, extra = {}) => [{ ...r, spec: { seed, ytg, offR: roster(), defR: roster(), ...spec }, who: whoOf(spec), kind: spec.kind, label, es, pts, yards: extra.yards ?? null, first: !!spec.first, turnover: !!extra.turnover, flag: !!spec.penalty, ...extra }];
+    const out = (spec, label, es, extra = {}) => {
+        const who = whoOf(spec);
+        // Jugada grande (20 yardas o más sin anotar): sale su tarjeta al terminar, «¡85 YARDAS!»
+        if (!pts && !spec.penalty && (extra.yards ?? 0) >= 20 && /^(pass|run|scramble)$/.test(spec.kind) && spec.gain >= 20) {
+            const n = (role) => who.find(([k]) => k === role)?.[1];
+            spec = { ...spec, big: true, bigText: spec.kind === 'pass' ? (n('Lanza') && n('Atrapa') ? `Pase de ${n('Lanza')} a ${n('Atrapa')}` : 'Pase largo') : n('Corre') ? `Carrera de ${n('Corre')}` : 'Carrera larga' };
+        }
+        return [{ ...r, spec: { seed, ytg, offR: roster(), defR: roster(), ...spec }, who, kind: spec.kind, label, es, pts, yards: extra.yards ?? null, first: !!spec.first, turnover: !!extra.turnover, flag: !!spec.penalty, ...extra }];
+    };
 
     // Nombres (con respaldo para los textos cuando ESPN no trae el nombre)
     const passer = pick(re(NAME + String.raw`\s+(?:pass|sacked|scrambles|spiked|kneels)`), text);

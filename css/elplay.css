@@ -60,6 +60,27 @@
 .gc-title p {
     margin: 4px 0 10px;
 }
+.gc-k {
+    font: 800 10px var(--font);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 2px;
+}
+.gc-k.now {
+    color: var(--live);
+}
+.gc-live {
+    display: inline-flex;
+    align-items: center;
+    background: color-mix(in srgb, var(--live) 16%, transparent);
+    color: var(--live);
+    border-radius: 999px;
+    padding: 2px 8px;
+    margin-right: 8px;
+    font: 800 10px var(--font);
+    letter-spacing: 1px;
+}
 .qb-card {
     display: flex;
     align-items: center;
@@ -106,6 +127,54 @@
 }
 .pl-tog button {
     padding: 4px 10px;
+}
+/* Campo en vivo: sin barra de tiempo ni repetir */
+.player.live-mode .scrub,
+.player.live-mode .b-replay,
+.player.live-mode .b-play {
+    display: none;
+}
+.player.live-mode .ctrls {
+    margin-top: 12px;
+}
+.player.live-mode .cap {
+    max-width: calc(100% - 20px);
+}
+.wait-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--live);
+    display: inline-block;
+    margin-right: 6px;
+    animation: blink 1.4s infinite;
+}
+.lc-last {
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    padding: 10px 16px 12px;
+    font: 600 13px/1.35 var(--font);
+    color: var(--ink);
+}
+.lc-last small {
+    display: block;
+    font: 800 10px var(--font);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--live);
+    margin-bottom: 2px;
+}
+.lc-last.new {
+    animation: lastFlash 1.6s var(--ease);
+}
+@keyframes lastFlash {
+    0% {
+        background: color-mix(in srgb, var(--live) 22%, var(--surface));
+    }
+}
+.queue-note {
+    font: 700 12px var(--font);
+    color: var(--muted);
 }
 
 /* Las pantallas de El Play (modo Lite) para la NFL: medidas y piezas sacadas de la app de El Play

@@ -35,7 +35,7 @@ ${install.can() ? `<div class="m-list"><button class="m-row inst"><span class="i
 <a class="m-row" href="#/practica"><span class="ic">${I.field}</span><span><b>Juego de práctica</b><small>Un juego simulado de punta a punta</small></span>${I.chev}</a>
 </div></div>
 <div class="m-list"><button class="m-row invite"><span class="ic">${I.share}</span><span><b>Pásale El Snap a alguien</b><small>Comparte el enlace para que la instale en su teléfono</small></span>${I.chev}</button></div>
-<div class="m-card"><div class="about"><svg viewBox="0 0 64 64" aria-hidden="true">${LOGO_PATHS('lg-more')}</svg><div><b>El Snap</b><small>Fútbol americano en vivo</small><em>Versión 2.0 · Datos de los juegos: ESPN</em></div></div></div>
+<div class="m-card"><div class="about"><svg viewBox="0 0 64 64" aria-hidden="true">${LOGO_PATHS('lg-more')}</svg><div><b>El Snap</b><small>Fútbol americano en vivo</small><em>Versión 2.1 · Datos de los juegos: ESPN</em></div></div></div>
 </div>`;
     };
     render();

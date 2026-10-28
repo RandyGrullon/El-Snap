@@ -3,6 +3,7 @@
 import { $, $$, esc, I, badge, settings, saveSettings, toggleIn, toast, share } from '../ui.js';
 import { LOGO_PATHS } from '../field.js';
 import { scoreboard, eventCards } from '../espn.js';
+import { describe } from '../nfl.js';
 import { store, install } from '../store.js';
 import { teamVars, timeOf, dayOf, longDay, soon, dayKey, miniField, ownFrom } from './common.js';
 
@@ -50,7 +51,7 @@ export function homeView(el, params) {
                 if (live) day = dayKey(live.date);
             }
             render();
-            if (games.some((g) => g.state === 'in')) timer = setTimeout(load, 20000);
+            if (games.some((g) => g.state === 'in')) timer = setTimeout(load, 10000);
         } catch {
             if (!alive) return;
             $('.cards', el).innerHTML = `<div class="sec empty-card">${I.info}<b>No se pudieron cargar los juegos</b><p class="muted">Si estás en la red de un trabajo o una escuela, puede que bloquee los datos deportivos: prueba con tus datos móviles.</p><button class="pill2 sm on retry">Reintentar</button></div>`;
@@ -160,6 +161,9 @@ export function homeView(el, params) {
     };
 }
 
+// Última jugada que ya se mostró de cada juego en vivo: cuando cambia, la franja se ilumina un momento
+const seenLast = new Map();
+
 /** Tarjeta de un juego, como GameFeedCard de El Play */
 export function card(g) {
     const [a, h] = g.teams;
@@ -173,9 +177,13 @@ export function card(g) {
         const own = sit ? ownFrom(sit.spot, att.abbr) : null;
         const half = /medio tiempo|half/i.test(g.detail);
         const ball = (t) => (poss === t.id && !half ? `<span class="ballpos">${I.ball}</span>` : '');
+        const lp = sit?.lastPlay ? describe(sit.lastPlay) : '';
+        const fresh = lp && seenLast.has(g.id) && seenLast.get(g.id) !== lp;
+        if (lp) seenLast.set(g.id, lp);
         return `<a class="lcard" href="${href}">
   <div class="lc-halves"><div class="lc-half" style="${teamVars(a)}"><b>${esc(a.name)} ${ball(a)}</b><div class="sc">${esc(a.score)}</div></div><div class="lc-half home" style="${teamVars(h)}"><b>${ball(h)} ${esc(h.name)}</b><div class="sc">${esc(h.score)}</div></div></div>
   <div class="lc-strip"><span class="livepill"><i class="pulse"></i>${esc(half ? 'Medio tiempo' : g.detail)}</span>${half ? '<span class="dd">Medio tiempo</span>' : `${miniField(att, def, own, sit?.distance)}<span class="dd">${esc(sit?.text?.split(' at ')[0] || '')}</span><span class="lastp">${esc(sit?.spot || '')}${sit?.redZone ? ' · zona roja' : ''}</span>`}</div>
+  ${lp ? `<div class="lc-last ${fresh ? 'new' : ''}"><small>Última jugada</small>${esc(lp)}</div>` : ''}
 </a>`;
     }
     const rows = g.teams

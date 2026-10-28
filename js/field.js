@@ -10,6 +10,10 @@ const R_PLAYER = 1.05;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const lerp = (a, b, t) => a + (b - a) * t;
 const ease = (t) => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
+const smoothstep = (t) => {
+    const k = clamp(t, 0, 1);
+    return k * k * (3 - 2 * k);
+};
 const bounce = (t) => {
     const k = clamp(t, 0, 1);
     return 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2);
@@ -170,11 +174,60 @@ export class Stage {
         return MID + this.view.dir * v;
     }
 
-    /** Carga una jugada armada por el motor con su vista: línea de golpeo, dirección, equipos y línea de primera */
-    load(play, view) {
+    /** Dónde está cada ficha ahora (x, y del campo) y de qué equipo es: para que la siguiente jugada salga de ahí */
+    positions() {
+        if (!this.play) return [];
+        return this.play.actors.map((a) => {
+            const [u, v] = a.at(this.t);
+            return { id: a.id, team: a.side === 'ref' ? 'ref' : a.side === 'off' ? this.view.offTeam.abbr : this.view.defTeam.abbr, x: this.X(u), y: this.Y(v) };
+        });
+    }
+    /** Dónde está el balón ahora (x, y del campo) */
+    ballXY() {
+        if (!this.play) return null;
+        const b = this.play.ballAt(this.t);
+        return { x: this.X(b.u), y: this.Y(b.v) };
+    }
+
+    /**
+     * Carga una jugada armada por el motor con su vista: línea de golpeo, dirección, equipos y línea de primera.
+     * opts.from: dónde estaban las fichas (positions()); caminan de ahí a su lugar en el primer segundo y pico.
+     * opts.ball: dónde estaba el balón (ballXY()); lo devuelven a la nueva línea en ese mismo rato.
+     * opts.smooth: la cámara se desliza en vez de saltar.
+     */
+    load(play, view, opts = {}) {
         this.pause();
         this.play = play;
         this.view = view;
+        if (opts.from?.length) {
+            const n = Math.round((opts.transition ?? 1.3) * 30);
+            const pool = opts.from.map((p) => ({ ...p, used: false }));
+            const teamOf = (a) => (a.side === 'ref' ? 'ref' : a.side === 'off' ? view.offTeam.abbr : view.defTeam.abbr);
+            for (const a of play.actors) {
+                const tm = teamOf(a);
+                const p = pool.find((q) => !q.used && q.team === tm && q.id === a.id) || pool.find((q) => !q.used && q.team === tm);
+                if (!p) continue;
+                p.used = true;
+                const pu = (p.x - view.losX) / view.dir;
+                const pv = (p.y - MID) / view.dir;
+                for (let i = 0; i <= n && 2 * i + 1 < a.f.length; i++) {
+                    const k = smoothstep(i / n);
+                    a.f[2 * i] = lerp(pu, a.f[2 * i], k);
+                    a.f[2 * i + 1] = lerp(pv, a.f[2 * i + 1], k);
+                }
+            }
+            const b0 = play.ball[0];
+            const T = Math.min(n / 30, (play.ball[1]?.t0 ?? 99) - 0.1);
+            if (opts.ball && b0?.k === 'rest' && b0.t0 === 0 && T > 0.3) {
+                const from = [(opts.ball.x - view.losX) / view.dir, (opts.ball.y - MID) / view.dir];
+                const d = Math.hypot(from[0] - b0.at[0], from[1] - b0.at[1]);
+                if (d > 0.5) {
+                    play.ball.unshift({ k: 'fly', t0: 0, t1: T, from, to: b0.at, h0: b0.h, h1: b0.h, peak: Math.min(2.5, d * 0.06) });
+                    b0.t0 = T;
+                }
+            }
+        }
+        this.smoothLoad = !!opts.smooth;
         this.t = 0;
         this.lastT = -1;
         this.step = -1;
@@ -254,7 +307,7 @@ export class Stage {
 
         // Efectos de cada evento (todos existen desde el principio; el tiempo decide qué se ve)
         this.fx = play.events.map((e) => this.makeFx(e)).filter(Boolean);
-        this.render(true);
+        this.render(!this.smoothLoad);
         this.opts.onLoad?.(play);
     }
 

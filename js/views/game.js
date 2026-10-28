@@ -6,7 +6,7 @@ import { $, $$, esc, I, badge, settings, toggleIn, toast, share, openSheet, Play
 import { Stage } from '../field.js';
 import { buildPlay } from '../plays.js';
 import { summary, gameExtras } from '../espn.js';
-import { mapGame } from '../nfl.js';
+import { mapGame, roster } from '../nfl.js';
 import { teamVars, inkOn, timeOf, dayOf, longDay, soon, qName, qShort, miniField, ownFrom, playView, tagColor } from './common.js';
 
 const NAME = /([A-Z][\w'’]*\.\s?[A-Z][\w'’-]+)/;
@@ -22,9 +22,10 @@ export function gameView(el, { id, play: focusPlay }) {
     let timer = 0;
     let G = null;
     let X = null;
-    let gc = null; // reproductor del en vivo
-    let gcIdx = -1;
-    let follow = true;
+    let gc = null; // el campo en vivo
+    let liveSeen = new Set(); // jugadas que ya estaban o que ya entraron a la cola
+    const liveQ = []; // jugadas nuevas por animar, en orden
+    let liveBusy = false; // hay una jugada animándose
     let follTimer = 0;
     let storyIdx = 0;
     let storyStage = null;
@@ -45,16 +46,16 @@ export function gameView(el, { id, play: focusPlay }) {
     async function load(first) {
         clearTimeout(timer);
         try {
-            const s = await summary(id, G?.status.state === 'in');
+            const s = await summary(id, !G || G.status.state === 'in');
             if (!alive) return;
             const prev = G;
             G = mapGame(s);
             X = gameExtras(s);
             const changed = !prev || prev.status.state !== G.status.state;
             if (first || changed) renderAll();
-            else update(prev.recs.length);
+            else update();
             updatedAt = Date.now();
-            if (G.status.state === 'in') timer = setTimeout(() => load(false), 10000);
+            if (G.status.state === 'in') timer = setTimeout(() => load(false), 5000);
             else if (G.status.state === 'pre') timer = setTimeout(() => load(false), 60000);
         } catch {
             if (!alive || G) return;
@@ -404,42 +405,113 @@ export function gameView(el, { id, play: focusPlay }) {
         return `<div class="sec-h"><span class="eyebrow">Últimas jugadas</span><span class="muted">Toca una para verla</span></div><div class="tl">${html || '<p class="muted">Todavía no hay jugadas.</p>'}${more > 0 ? `<button class="more-btn plays">Ver ${more} jugadas más</button>` : ''}</div>`;
     }
 
-    function gcShow(i) {
-        const r = G.recs[i];
-        if (!r?.spec || !gc) return;
-        clearTimeout(follTimer);
-        gcIdx = i;
-        const b = built(r);
-        if (b) gc.show(b.play, b.view, r);
-        $('.gc-title', el).innerHTML = `<b>${esc(r.label)}</b> <span class="muted">${esc(qShort(r.q))} ${esc(r.clock)}${r.downText ? ` · ${esc(r.downText)}` : ''}</span><p>${esc(r.es || '')}</p>${whoHtml(r)}`;
-        if (b) gc.start();
-        else if (follow) follTimer = setTimeout(() => gcStep(1), 1500);
-    }
+    // Nada de repeticiones aquí: al abrir, los equipos esperan formados la próxima jugada; cada jugada nueva que
+    // llega de ESPN entra en una cola y se anima en orden, y al terminar las fichas caminan desde donde quedaron
+    // hasta la siguiente formación. Las jugadas viejas se ven en la hoja «Jugadas».
     const big = (r) => r.pts || r.turnover || r.flag || Math.abs(r.yards ?? 0) >= 20 || r.kind === 'sack';
-    const gcStep = (d, onlyBig) => {
-        let i = gcIdx + d;
-        while (i >= 0 && i < G.recs.length && (!G.recs[i].spec || (onlyBig && !big(G.recs[i])))) i += d;
-        if (i >= 0 && i < G.recs.length) gcShow(i);
+    const animates = (r) => settings.anim === 'all' || (settings.anim === 'big' && big(r));
+    const liveKey = (r) => `${r.id}|${r.kind}`;
+    const realName = (n) => n && !/^(el|la|su) /i.test(n);
+    /** El último nombre real que hizo de `role` (qb, k) para ese equipo en las jugadas del juego */
+    const lastName = (team, role) => {
+        for (let i = G.recs.length - 1; i >= 0; i--) {
+            const r = G.recs[i];
+            const n = r.team === team && r.spec?.offR?.[role]?.n;
+            if (realName(n)) return n;
+        }
+        return '';
     };
+    const playTitle = (r, now) =>
+        `<div class="gc-k ${now ? 'now' : ''}">${now ? '<span class="wait-dot"></span>Ahora mismo' : 'Última jugada'}</div><b>${esc(r.label)}</b> <span class="muted">${esc(qShort(r.q))} ${esc(r.clock)}${r.downText ? ` · ${esc(r.downText)}` : ''}</span><p>${esc(r.es || '')}</p>${whoHtml(r)}`;
+
+    /** Cómo se forman para lo que viene: punto extra tras un TD, patada tras anotar, o la serie en curso */
+    function nextFormation() {
+        const last = [...G.recs].reverse().find((r) => r.spec && r.kind !== 'timeout');
+        const q = G.status.period || last?.q || 1;
+        const name = (i) => G.teams[i].name;
+        if (last?.pts?.n === 6) return { team: last.pts.team, q, ytg: 15, variant: 'pat', role: 'k', text: `${name(last.pts.team)} se forma para el punto extra` };
+        const safety = last?.pts?.n === 2 && last.kind !== '2pt';
+        if (last && (last.pts || last.kind === 'xp' || last.kind === '2pt')) {
+            const team = safety ? 1 - last.pts.team : last.pts?.team ?? last.team;
+            return { team, q, ytg: safety ? 80 : 65, variant: 'kickoff', role: 'k', text: `${name(team)} se prepara para patear` };
+        }
+        const s = X.sit;
+        const team = s ? G.teams.findIndex((t) => t.id === s.team) : -1;
+        if (team >= 0 && s.ytg != null) {
+            const goal = s.ytg <= s.distance;
+            return { team, q, ytg: s.ytg, firstX: goal ? null : s.distance, variant: 'scrim', role: 'qb', text: `${G.teams[team].abbr} con el balón · ${s.down}ª y ${goal ? 'gol' : s.distance}${s.spot ? ` en ${s.spot}` : ''}` };
+        }
+        if (!last) return { team: 1, q: 1, ytg: 65, variant: 'kickoff', role: 'k', text: 'Esperando la patada inicial' };
+        return null;
+    }
+    /** Las fichas caminan desde donde están hasta la formación de lo que viene, y esperan el snap */
+    function liveIdle() {
+        const f = gc && nextFormation();
+        if (!f) return;
+        gc.stage.speed = gc.speed;
+        try {
+            const n = lastName(f.team, f.role);
+            const { spec, view } = playView({ team: f.team, q: f.q, firstX: f.firstX, spec: { kind: 'formation', variant: f.variant, ytg: f.ytg, text: f.text, seed: 7, offR: roster(n ? { [f.role]: n } : {}) } }, G.teams);
+            const j = n && X.find(n)?.jersey;
+            if (j) spec.jerseys = { [n]: j };
+            gc.show(buildPlay(spec), view, {}, { from: gc.stage.positions(), ball: gc.stage.ballXY(), transition: 1.4, smooth: true, keepOverlay: true });
+            gc.start();
+        } catch {
+            // si algo de la situación viene raro, el campo se queda como está
+        }
+    }
+    /** La siguiente jugada de la cola: se anima desde donde quedaron las fichas */
+    function liveNext() {
+        clearTimeout(follTimer);
+        if (!gc || !alive) return;
+        const r = liveQ.shift();
+        if (!r) {
+            liveBusy = false;
+            return liveIdle();
+        }
+        liveBusy = true;
+        $('.gc-title', el).innerHTML = playTitle(r, true);
+        $('.queue-note', el).textContent = liveQ.length ? `+${liveQ.length} en cola` : '';
+        const b = animates(r) ? built(r) : null;
+        if (!b) {
+            follTimer = setTimeout(liveNext, liveQ.length ? 1200 : 2200);
+            return;
+        }
+        gc.show(b.play, b.view, r, { from: gc.stage.positions(), ball: gc.stage.ballXY(), transition: 1.3, smooth: true });
+        // Con jugadas esperando, un poco más rápido para alcanzar el juego
+        gc.stage.speed = gc.speed * (liveQ.length >= 2 ? 1.5 : 1);
+        gc.start();
+    }
+    /** Mete en la cola lo que ESPN trajo de nuevo. Si llegan muchas de golpe (la app estuvo en segundo plano),
+     * se saltan las de trámite, nunca las anotaciones, pérdidas ni jugadas grandes */
+    function liveFeed() {
+        for (const r of G.recs) {
+            if (!r.spec || liveSeen.has(liveKey(r))) continue;
+            liveSeen.add(liveKey(r));
+            liveQ.push(r);
+        }
+        while (liveQ.length > 4) {
+            const i = liveQ.findIndex((r) => !big(r));
+            liveQ.splice(i >= 0 ? i : 0, 1);
+        }
+        if (!liveBusy && liveQ.length) liveNext();
+        else if (liveBusy) $('.queue-note', el).textContent = liveQ.length ? `+${liveQ.length} en cola` : '';
+    }
     function mountGamecast() {
         const slot = $('.gc-player', el);
         if (!slot) return;
+        liveQ.length = 0;
+        liveBusy = false;
+        liveSeen = new Set(G.recs.map(liveKey));
         gc = new PlayerView(slot, {
-            extra: `<button class="btn-round g-prev" aria-label="Jugada anterior">${I.prev}</button><button class="btn-round g-next" aria-label="Jugada siguiente">${I.next}</button><button class="tog g-follow ${follow ? 'on' : ''}" aria-pressed="${follow}">${I.zap}<span>Seguir</span></button>`,
+            live: true,
             onEnd: () => {
-                if (follow && settings.anim !== 'off') follTimer = setTimeout(() => gcStep(1, settings.anim === 'big'), 900);
-            },
-            onUser: () => clearTimeout(follTimer)
+                if (liveBusy) follTimer = setTimeout(liveNext, liveQ.length ? 900 : 1600);
+            }
         });
-        $('.g-prev', slot).onclick = () => gcStep(-1);
-        $('.g-next', slot).onclick = () => gcStep(1);
-        $('.g-follow', slot).onclick = (e) => {
-            follow = !follow;
-            e.currentTarget.classList.toggle('on', follow);
-            e.currentTarget.setAttribute('aria-pressed', follow);
-        };
-        const start = focusPlay != null ? Number(focusPlay) : lastPlayable();
-        if (start >= 0) gcShow(start);
+        const i = lastPlayable();
+        if (i >= 0) $('.gc-title', el).innerHTML = playTitle(G.recs[i], false);
+        liveIdle();
     }
 
     // ------------------------------------------------------------ Previa
@@ -494,20 +566,23 @@ export function gameView(el, { id, play: focusPlay }) {
         storyStage?.pause();
         if (st === 'pre') body.innerHTML = preview();
         else if (st === 'in')
-            body.innerHTML = `${situ()}<section class="sec"><div class="sec-h"><span class="eyebrow">${I.field}En el campo</span><span class="muted upd">Actualizado hace 0 s</span></div><div class="gc-title"></div><div class="gc-player"></div></section><section class="sec ls-sec">${lineScore()}</section><section class="sec pl-sec">${playersSec()}</section><section class="sec tl-sec">${timeline()}</section><section class="sec flow-sec">${flowSec()}</section><section class="sec">${detailsSec()}</section><div class="abtns"><button class="abtn box">${I.table}Box score</button><button class="abtn plays">${I.list}Jugadas</button><button class="abtn primary share-g">${I.share}Compartir</button></div>`;
+            body.innerHTML = `${situ()}<section class="sec"><div class="sec-h"><span class="eyebrow"><span class="gc-live"><span class="wait-dot"></span>EN VIVO</span>En el campo</span><span class="muted upd">Actualizado hace 0 s</span></div><div class="gc-title"></div><div class="gc-player"></div><div class="queue-note"></div></section><section class="sec ls-sec">${lineScore()}</section><section class="sec pl-sec">${playersSec()}</section><section class="sec tl-sec">${timeline()}</section><section class="sec flow-sec">${flowSec()}</section><section class="sec">${detailsSec()}</section><div class="abtns"><button class="abtn box">${I.table}Box score</button><button class="abtn plays">${I.list}Jugadas</button><button class="abtn primary share-g">${I.share}Compartir</button></div>`;
         else
             body.innerHTML = `<div class="story-slot"></div><section class="sec ls-sec">${lineScore()}</section><section class="sec pl-sec">${playersSec()}</section><section class="sec flow-sec">${flowSec()}</section>${scoringSec() ? `<section class="sec">${scoringSec()}</section>` : ''}${drivesSec() ? `<section class="sec dm-sec">${drivesSec()}</section>` : ''}${detailsSec() ? `<section class="sec">${detailsSec()}</section>` : ''}<div class="abtns"><button class="abtn plays">${I.list}Jugadas</button><button class="abtn box">${I.table}Box score</button><button class="abtn primary share-g">${I.share}Compartir</button></div>`;
         $$('.sec', body).forEach((s) => {
             if (!s.innerHTML.trim()) s.remove();
         });
-        if (st === 'in') mountGamecast();
+        if (st === 'in') {
+            mountGamecast();
+            if (focusPlay != null) openPlays(Number(focusPlay));
+        }
         if (st === 'post') {
             mountStory();
             if (focusPlay != null) openPlays(Number(focusPlay));
         }
     }
 
-    function update(prevLen) {
+    function update() {
         renderHero();
         const set = (sel, html) => {
             const s = $(sel, el);
@@ -519,7 +594,7 @@ export function gameView(el, { id, play: focusPlay }) {
         set('.tl-sec', timeline());
         set('.flow-sec', flowSec());
         set('.pl-sec', playersSec());
-        if (gc && follow && G.recs.length > prevLen && !gc.stage.playing) gcStep(1);
+        if (gc) liveFeed();
     }
 
     // ------------------------------------------------------------ Hojas: jugadas y box score
@@ -656,15 +731,9 @@ export function gameView(el, { id, play: focusPlay }) {
             $('.dm-sec', el).innerHTML = drivesSec();
             return;
         }
+        // Las jugadas que ya pasaron se ven en la hoja; el campo en vivo sigue con el juego
         const sw = t.closest('.swing, .bub.play');
-        if (sw) {
-            const n = Number(sw.dataset.n);
-            if (gc) {
-                gcShow(n);
-                $('.gc-player', el)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            } else openPlays(n);
-            return;
-        }
+        if (sw) return openPlays(Number(sw.dataset.n));
         const sp = t.closest('.st-prog [data-s]');
         if (sp) {
             storyIdx = Number(sp.dataset.s);

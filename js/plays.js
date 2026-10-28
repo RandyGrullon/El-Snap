@@ -1734,6 +1734,44 @@ function challengeWrap(P) {
     P.dur = tw + 6.2;
 }
 
+/**
+ * Formación en espera (en vivo, entre jugadas): los equipos formados en la línea de golpeo esperando el snap.
+ * variant: 'scrim' (jugada normal), 'pat' (punto extra) o 'kickoff' (patada inicial). Se arma la jugada real de
+ * ese tipo y se corta antes del snap, así la formación es la misma que luego se anima.
+ */
+function buildFormation(P) {
+    const s = P.spec;
+    const v = s.variant || 'scrim';
+    if (v === 'kickoff') {
+        P.spec = { ...s, land: 64, ret: 20 };
+        buildKickoff(P);
+    } else if (v === 'pat') {
+        P.spec = { ...s, result: 'good' };
+        P.kind = 'xp';
+        buildKick(P);
+    } else {
+        offense(P, s.form || 'gun');
+        defense(P);
+        P.rest(0, [-0.2, 0]);
+    }
+    // Todos quietos en su lugar y el balón en la línea (o en el tee)
+    for (const a of P.actors) a.fill(0, a.at(0));
+    P.held = new Set(P.actors);
+    P.refsDone = true;
+    P.ball = [{ k: 'rest', t0: 0, at: v === 'kickoff' ? [0, 0] : [-0.2, 0], h: v === 'kickoff' ? 0.3 : 0.12 }];
+    P.kind = 'formation';
+    P.marks = {};
+    P.events = [];
+    P.routes = [];
+    P.steps = [{ t: 0, text: s.text || 'Esperando el snap…' }];
+    P.flags = [];
+    P.downs = [];
+    // El que manda en esa formación lleva su nombre: el QB, o el pateador en el punto extra y la patada
+    const lead = v === 'scrim' ? P.by.QB : P.by.K;
+    if (lead) lead.key = true;
+    P.end(0.4, 3.2);
+}
+
 const BUILDERS = {
     run: buildRun,
     pass: buildPass,
@@ -1750,7 +1788,8 @@ const BUILDERS = {
     '2pt': build2pt,
     kneel: buildKneel,
     presnap: buildPreSnap,
-    timeout: buildTimeout
+    timeout: buildTimeout,
+    formation: buildFormation
 };
 
 const REF_MODE = { kickoff: 'kick', onside: 'kick', punt: 'punt', fg: 'fg', xp: 'fg' };
@@ -1761,6 +1800,8 @@ export function buildPlay(spec) {
     officials(P, REF_MODE[spec.kind] || 'scrim');
     BUILDERS[spec.kind](P);
     if (spec.kind === 'presnap' || spec.penalty) penaltyWrap(P);
+    // Jugada grande (20 yardas o más, sin anotación): su tarjeta al terminar, como «¡85 YARDAS!»
+    if (spec.big && !P.events.some((e) => e.type === 'card')) P.ev(P.whistle + 0.15, 'card', { kind: 'big', side: 'off', title: `¡${spec.gain} YARDAS!`, sub: spec.bigText || '' });
     challengeWrap(P);
     P.finalize();
     // Números reales de los jugadores (juegos de la NFL): «P.Mahomes» → 15
